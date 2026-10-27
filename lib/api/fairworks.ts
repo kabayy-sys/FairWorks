@@ -2,7 +2,9 @@
 // Type-safe RPC helpers for frontend developers (Iwan, Riski, Chello)
 
 import { createClient } from "@/lib/supabase/client";
-import type { TaskVoteChoice } from "@/types/database";
+import type { TaskVoteChoice, Database } from "@/types/database";
+
+type TaskUpdate = Database["public"]["Tables"]["tasks"]["Update"];
 
 export async function createRoom(nama: string) {
   const supabase = createClient();
@@ -105,4 +107,66 @@ export function detectLinkType(url: string): LinkChipType {
   if (lower.includes("figma.com")) return "Figma";
   if (lower.includes("drive.google.com")) return "Drive";
   return "Lainnya";
+}
+
+export async function createTask(params: {
+  roomId: string;
+  judul: string;
+  deskripsi?: string;
+  poin?: number;
+  dueDate?: string;
+}) {
+  const supabase = createClient();
+  const userRes = await supabase.auth.getUser();
+  const userId = userRes.data.user?.id;
+  if (!userId) throw new Error("Unauthorized");
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({
+      room_id: params.roomId,
+      judul: params.judul.trim(),
+      deskripsi: params.deskripsi?.trim() || null,
+      poin: params.poin ?? 10,
+      due_date: params.dueDate || null,
+      status: "open",
+      created_by: userId,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateTask(
+  taskId: string,
+  params: {
+    judul?: string;
+    deskripsi?: string;
+    poin?: number;
+    dueDate?: string;
+  }
+) {
+  const supabase = createClient();
+  const payload: TaskUpdate = {};
+  if (params.judul !== undefined) payload.judul = params.judul.trim();
+  if (params.deskripsi !== undefined) payload.deskripsi = params.deskripsi.trim() || null;
+  if (params.poin !== undefined) payload.poin = params.poin;
+  if (params.dueDate !== undefined) payload.due_date = params.dueDate || null;
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update(payload)
+    .eq("id", taskId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTask(taskId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  if (error) throw error;
+  return true;
 }
