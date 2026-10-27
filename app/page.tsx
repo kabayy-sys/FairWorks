@@ -17,6 +17,8 @@ import {
   TaskRow,
 } from './components/DesignSystem';
 import { ThumbBar } from './components/ThumbBar';
+import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
+import { JoinRoomModal } from './components/JoinRoomModal';
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<BackgroundMood | 'story'>('landing');
@@ -27,6 +29,25 @@ export default function Home() {
   const [emailInput, setEmailInput] = useState('');
   const [authSent, setAuthSent] = useState(false);
   const [storyModalOpen, setStoryModalOpen] = useState(false);
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const [roomSubTab, setRoomSubTab] = useState<'papan' | 'kontrak'>('kontrak');
+
+  // State Flow Kontrak Demo / Nyata
+  const [contractLocked, setContractLocked] = useState(false);
+  const [contractDeadline, setContractDeadline] = useState<string | null>(null);
+  const [contractMembers, setContractMembers] = useState<ContractMember[]>([
+    { id: 'me', name: 'Ayu', role: 'ketua', contractVote: 'agree' },
+    { id: 'u2', name: 'Bima', role: 'anggota', contractVote: null },
+    { id: 'u3', name: 'Citra', role: 'anggota', contractVote: null },
+    { id: 'u4', name: 'Dimas', role: 'anggota', contractVote: null },
+    { id: 'u5', name: 'Esa', role: 'anggota', contractVote: null },
+  ]);
+  const [contractTasks, setContractTasks] = useState<ContractTaskItem[]>([
+    { id: 't1', judul: 'Tulis bab latar belakang', poin: 10, dueDate: '2026-11-05', status: 'open' },
+    { id: 't2', judul: 'Rangkum 10 jurnal relevan', poin: 15, dueDate: '2026-11-06', status: 'open' },
+    { id: 't3', judul: 'Kumpulkan 30 responden survei', poin: 20, dueDate: '2026-11-08', status: 'open' },
+    { id: 't4', judul: 'Olah data di spreadsheet', poin: 15, dueDate: '2026-11-10', status: 'open' },
+  ]);
 
   const activeMood: BackgroundMood = currentView === 'story' ? 'landing' : (currentView as BackgroundMood);
 
@@ -197,7 +218,7 @@ export default function Home() {
 
               {/* Baris dashed masuk kode */}
               <div
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => setJoinModalOpen(true)}
                 className="p-4 rounded-[18px] border border-dashed border-[var(--c2)] hover:bg-[var(--c1)]/40 flex items-center justify-between text-xs text-[var(--c3)] cursor-pointer transition-all"
               >
                 <span>+ Masuk kode ruangan…</span>
@@ -242,53 +263,150 @@ export default function Home() {
               </div>
 
               {/* 2 Tab saja (DESIGN.md v2 §3 #3) */}
-              <div className="pt-2">
+              <div className="pt-2 flex items-center justify-between gap-2">
                 <TabsPill tabs={['Semua', 'Bisa diambil']} activeTab={activeTab} onChange={setActiveTab} />
+                <div className="flex bg-[var(--c1)] p-0.5 rounded-full border border-[var(--c2)] text-[11px] font-mono">
+                  <button
+                    onClick={() => setRoomSubTab('kontrak')}
+                    className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
+                      roomSubTab === 'kontrak' ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'text-[var(--c3)]'
+                    }`}
+                  >
+                    Kontrak
+                  </button>
+                  <button
+                    onClick={() => setRoomSubTab('papan')}
+                    className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
+                      roomSubTab === 'papan' ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'text-[var(--c3)]'
+                    }`}
+                  >
+                    Papan
+                  </button>
+                </div>
               </div>
             </div>
 
-            {/* Zona 2: Satu Kolom Daftar Tugas (TaskRow) */}
-            <div className="space-y-2">
-              <TaskRow
-                status="review"
-                title="Rangkum 10 jurnal relevan"
-                points={15}
-                assignee="Bima"
-                reviewStatus="1/2 setuju"
-                onClick={() => setToastMessage('Membuka modal detail suara tugas...')}
+            {/* Sub-view: Alur Kontrak (T3) vs Papan Tugas (T4) */}
+            {roomSubTab === 'kontrak' ? (
+              <ContractFlow
+                roomName="Riset Pasar Digital"
+                roomCode="RPD-4K7"
+                isOwner={true}
+                isLocked={contractLocked}
+                lockedAt={contractLocked ? new Date().toISOString() : null}
+                contractDeadline={contractDeadline}
+                members={contractMembers}
+                tasks={contractTasks}
+                currentUserId="me"
+                onAddTask={(newTask) => {
+                  const id = `t-${Date.now()}`;
+                  setContractTasks((prev) => [
+                    ...prev,
+                    {
+                      ...newTask,
+                      id,
+                      status: 'open',
+                      postLockVotes: newTask.postLockPending ? [] : undefined,
+                    },
+                  ]);
+                  setToastMessage(
+                    newTask.postLockPending
+                      ? 'Tugas diajukan ke mayoritas anggota!'
+                      : 'Tugas berhasil ditambahkan ke draf kontrak'
+                  );
+                }}
+                onEditTask={(taskId, updates) => {
+                  setContractTasks((prev) =>
+                    prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t))
+                  );
+                  setToastMessage('Tugas berhasil diubah');
+                }}
+                onDeleteTask={(taskId) => {
+                  setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
+                  setToastMessage('Tugas dihapus dari kontrak');
+                }}
+                onSubmitContract={() => {
+                  const d = new Date();
+                  d.setHours(d.getHours() + 24);
+                  setContractDeadline(d.toISOString());
+                  setToastMessage('Kontrak diajukan! Batas 24 jam dimulai.');
+                }}
+                onVoteContract={(agree, note) => {
+                  setContractMembers((prev) =>
+                    prev.map((m) =>
+                      m.id === 'me'
+                        ? { ...m, contractVote: agree ? 'agree' : 'request_changes', contractVoteNote: note || null }
+                        : m
+                    )
+                  );
+                  if (agree) {
+                    setToastMessage('Persetujuan Anda telah dicatat.');
+                  } else {
+                    setToastMessage('Catatan revisi kontrak telah dikirim.');
+                  }
+                }}
+                onVotePostLockTask={(taskId, agree) => {
+                  if (agree) {
+                    // Cek mayoritas atau setujui langsung
+                    setContractTasks((prev) =>
+                      prev.map((t) => (t.id === taskId ? { ...t, postLockPending: false } : t))
+                    );
+                    setToastMessage('Tugas pasca-lock disetujui mayoritas & aktif!');
+                  } else {
+                    setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
+                    setToastMessage('Tugas pasca-lock ditolak anggota.');
+                  }
+                }}
+                onAutoLockTrigger={() => {
+                  setContractLocked(true);
+                  setContractDeadline(null);
+                  setToastMessage('Waktu 24 jam habis: Kontrak terkunci otomatis!');
+                }}
               />
-              <TaskRow
-                status="doing"
-                title="Kumpulkan 30 responden survei"
-                points={20}
-                assignee="Dimas"
-                isOverdue={true}
-                onClick={() => setToastMessage('Tugas lewat tenggat — siap diambil alih!')}
-              />
-              <TaskRow
-                status="doing"
-                title="Olah data di spreadsheet"
-                points={15}
-                assignee="Esa"
-                dueText="5 hari lagi"
-                onClick={() => setToastMessage('Membuka detail tugas...')}
-              />
-              <TaskRow
-                status="open"
-                title="Desain slide presentasi akhir"
-                points={10}
-                dueText="Bisa diambil"
-                onClick={() => setToastMessage('Ambil tugas ini dengan 1 ketukan!')}
-              />
-              <TaskRow
-                status="done"
-                title="Tulis bab latar belakang"
-                points={10}
-                assignee="Ayu"
-                dueText="Selesai"
-                onClick={() => setToastMessage('Tugas sudah disetujui penuh.')}
-              />
-            </div>
+            ) : (
+              /* Zona 2: Satu Kolom Daftar Tugas (TaskRow - Papan T4) */
+              <div className="space-y-2">
+                <TaskRow
+                  status="review"
+                  title="Rangkum 10 jurnal relevan"
+                  points={15}
+                  assignee="Bima"
+                  reviewStatus="1/2 setuju"
+                  onClick={() => setToastMessage('Membuka modal detail suara tugas...')}
+                />
+                <TaskRow
+                  status="doing"
+                  title="Kumpulkan 30 responden survei"
+                  points={20}
+                  assignee="Dimas"
+                  isOverdue={true}
+                  onClick={() => setToastMessage('Tugas lewat tenggat — siap diambil alih!')}
+                />
+                <TaskRow
+                  status="doing"
+                  title="Olah data di spreadsheet"
+                  points={15}
+                  assignee="Esa"
+                  dueText="5 hari lagi"
+                  onClick={() => setToastMessage('Membuka detail tugas...')}
+                />
+                <TaskRow
+                  status="open"
+                  title="Desain slide presentasi akhir"
+                  points={10}
+                  dueText="Bisa diambil"
+                  onClick={() => setToastMessage('Ambil tugas ini dengan 1 ketukan!')}
+                />
+                <TaskRow
+                  status="done"
+                  title="Tulis bab latar belakang"
+                  points={10}
+                  assignee="Ayu"
+                  dueText="Selesai"
+                  onClick={() => setToastMessage('Tugas sudah disetujui penuh.')}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -397,7 +515,15 @@ export default function Home() {
         )}
       </div>
 
-      {/* Global Toast */}
+      {/* Join Room Modal (T3: Join ruangan via kode) */}
+      <JoinRoomModal
+        isOpen={joinModalOpen}
+        onClose={() => setJoinModalOpen(false)}
+        onJoin={async (code) => {
+          setToastMessage(`Berhasil bergabung ke ruangan ${code}!`);
+          setCurrentView('room');
+        }}
+      />
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
 
       {/* Global Modal (Join Kode) */}
