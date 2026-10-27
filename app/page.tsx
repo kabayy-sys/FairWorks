@@ -17,6 +17,7 @@ import {
   TaskRow,
 } from './components/DesignSystem';
 import { ThumbBar } from './components/ThumbBar';
+import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<BackgroundMood | 'story'>('landing');
@@ -208,88 +209,15 @@ export default function Home() {
         )}
 
         {/* ==============================================================
-            VIEW 4: ROOM — 2 Zona: Strip Progres + TaskRow 1 Kolom (DESIGN.md v2 §5.4)
+            VIEW 4: ROOM — Siklus Pengerjaan Tugas T4 (Riski)
+            2 Zona: Kepala + Strip Progres Tipis & 1 Kolom Daftar Tugas
            ============================================================== */}
         {currentView === 'room' && (
-          <div className="space-y-5 animate-in fade-in duration-700">
-            {/* Zona 1: Kepala + Strip Progres tipis */}
-            <div className="space-y-3 border-b border-[var(--c1)] pb-5">
-              <div className="flex justify-between items-center text-xs">
-                <div className="flex items-center gap-2 font-mono text-[var(--c3)]">
-                  <span>RPD-4K7</span>
-                  <span>·</span>
-                  <span className="text-[var(--c4)]">Ketua</span>
-                </div>
-                <button
-                  onClick={() => setIsDrawerOpen(true)}
-                  className="font-mono text-xs text-[var(--c3)] hover:text-[var(--c4)] flex items-center gap-1 cursor-pointer"
-                >
-                  Anggota <span className="text-[10px]">⌄</span>
-                </button>
-              </div>
-
-              <h2 className="text-2xl font-semibold tracking-tight">Riset Pasar Digital</h2>
-
-              {/* Strip Tipis Progres: angka 20-28px, bar 8px (Hard Rule §1.5) */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between items-baseline text-xs font-mono">
-                  <span className="text-lg font-semibold text-[var(--c4)]">
-                    <Odometer value="40%" />
-                  </span>
-                  <span className="text-[var(--c3)]">16/40 poin</span>
-                </div>
-                <Track done={40} review={30} doing={20} open={10} />
-              </div>
-
-              {/* 2 Tab saja (DESIGN.md v2 §3 #3) */}
-              <div className="pt-2">
-                <TabsPill tabs={['Semua', 'Bisa diambil']} activeTab={activeTab} onChange={setActiveTab} />
-              </div>
-            </div>
-
-            {/* Zona 2: Satu Kolom Daftar Tugas (TaskRow) */}
-            <div className="space-y-2">
-              <TaskRow
-                status="review"
-                title="Rangkum 10 jurnal relevan"
-                points={15}
-                assignee="Bima"
-                reviewStatus="1/2 setuju"
-                onClick={() => setToastMessage('Membuka modal detail suara tugas...')}
-              />
-              <TaskRow
-                status="doing"
-                title="Kumpulkan 30 responden survei"
-                points={20}
-                assignee="Dimas"
-                isOverdue={true}
-                onClick={() => setToastMessage('Tugas lewat tenggat — siap diambil alih!')}
-              />
-              <TaskRow
-                status="doing"
-                title="Olah data di spreadsheet"
-                points={15}
-                assignee="Esa"
-                dueText="5 hari lagi"
-                onClick={() => setToastMessage('Membuka detail tugas...')}
-              />
-              <TaskRow
-                status="open"
-                title="Desain slide presentasi akhir"
-                points={10}
-                dueText="Bisa diambil"
-                onClick={() => setToastMessage('Ambil tugas ini dengan 1 ketukan!')}
-              />
-              <TaskRow
-                status="done"
-                title="Tulis bab latar belakang"
-                points={10}
-                assignee="Ayu"
-                dueText="Selesai"
-                onClick={() => setToastMessage('Tugas sudah disetujui penuh.')}
-              />
-            </div>
-          </div>
+          <RoomTaskLifecycle
+            currentUserId="user-riski"
+            currentUserName="Riski"
+            onNavigateHome={() => setCurrentView('dashboard')}
+          />
         )}
 
         {/* ==============================================================
@@ -453,7 +381,7 @@ export default function Home() {
       </Drawer>
 
       {/* Thumb Bar — Satu Aksi Utama Kontekstual (DESIGN.md v2 §4) */}
-      {currentView !== 'laporan' && (
+      {currentView !== 'laporan' && currentView !== 'room' && (
         <ThumbBar
           view={activeMood}
           onNavigate={setCurrentView}
@@ -462,19 +390,12 @@ export default function Home() {
               ? 'Mulai gratis'
               : currentView === 'auth'
               ? 'Kirim tautan masuk'
-              : currentView === 'dashboard'
-              ? 'Buat ruangan'
-              : 'Ambil tugas'
+              : 'Buat ruangan'
           }
           onPrimaryClick={() => {
             if (currentView === 'landing') setCurrentView('auth');
             else if (currentView === 'auth') setAuthSent(true);
             else if (currentView === 'dashboard') setToastMessage('Buka form buat ruangan');
-            else setToastMessage('Tugas diambil!');
-          }}
-          secondaryText={currentView === 'room' ? 'Anggota' : undefined}
-          onSecondaryClick={() => {
-            if (currentView === 'room') setIsDrawerOpen(true);
           }}
         />
       )}

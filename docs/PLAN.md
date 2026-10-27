@@ -64,14 +64,14 @@ Keluaran: kontrak bisa dibuat, dikirim, disetujui, terkunci.
 - [ ] Tambah tugas pasca-lock (vote mayoritas untuk tugas baru)
 - [ ] Join ruangan via kode/tautan
 
-### T4 — Siklus Tugas (Riski) — butuh T1, nyambung saat T2 siap
+### T4 — Siklus Tugas (Riski) ✅ SELESAI
 Keluaran: satu siklus penuh tugas selesai end-to-end.
-- [ ] Papan tugas: tabs pill, kartu status, badge overdue ("lewat 2 hari")
-- [ ] Ambil tugas (1 ketukan) + lepas + ambil alih (modal konfirmasi)
-- [ ] Kirim bukti: field link wajib + chip deteksi otomatis + kirim ulang
-- [ ] UI persetujuan: Setuju/Revisi, daftar suara transparan, catatan revisi
-- [ ] Progres besar + bar anggota + feed realtime (langganan Supabase)
-- [ ] Edge case UI: kirim ulang, suara hangus, anggota keluar, tanpa tenggat
+- [x] Papan tugas: tabs pill, kartu status, badge overdue ("lewat 2 hari")
+- [x] Ambil tugas (1 ketukan) + lepas + ambil alih (modal konfirmasi)
+- [x] Kirim bukti: field link wajib + chip deteksi otomatis + kirim ulang
+- [x] UI persetujuan: Setuju/Revisi, daftar suara transparan, catatan revisi
+- [x] Progres besar + bar anggota + feed realtime (langganan Supabase)
+- [x] Edge case UI: kirim ulang, suara hangus, anggota keluar, tanpa tenggat
 
 ### T5 — Halaman Publik (Chello + Iwan) — butuh T1; dossier nyambung saat ada data done
 Keluaran: pintu masuk, masuk, dan laporan dosen jadi.
