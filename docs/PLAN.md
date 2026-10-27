@@ -55,14 +55,14 @@ Keluaran: API hidup + tipe TypeScript — prasyarat T3 & T4 beneran nyambung.
 - [x] Seeding 3 ruangan demo
 - [x] Bonus: helper API siap pakai di `lib/api/fairworks.ts`
 
-### T3 — Flow Kontrak (Iwan) — butuh T1, nyambung saat T2 siap
+### T3 — Flow Kontrak (Iwan) — butuh T1, nyambung saat T2 siap ✅ SELESAI
 Keluaran: kontrak bisa dibuat, dikirim, disetujui, terkunci.
-- [ ] Form buat/edit tugas (judul, deskripsi opsional, poin default 10, tenggat default +7 hari)
-- [ ] Rekap kontrak + tombol **Kirim kontrak**
-- [ ] Modal Setuju / Minta ubah (catatan wajib)
-- [ ] Banner countdown 24 jam + status lock + kontrak terkunci
-- [ ] Tambah tugas pasca-lock (vote mayoritas untuk tugas baru)
-- [ ] Join ruangan via kode/tautan
+- [x] Form buat/edit tugas (judul, deskripsi opsional, poin default 10, tenggat default +7 hari)
+- [x] Rekap kontrak + tombol **Kirim kontrak**
+- [x] Modal Setuju / Minta ubah (catatan wajib)
+- [x] Banner countdown 24 jam + status lock + kontrak terkunci
+- [x] Tambah tugas pasca-lock (vote mayoritas untuk tugas baru)
+- [x] Join ruangan via kode/tautan
 
 ### T4 — Siklus Tugas (Riski) — butuh T1, nyambung saat T2 siap
 Keluaran: satu siklus penuh tugas selesai end-to-end.
