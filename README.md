@@ -24,7 +24,13 @@ Tim: Raken (Backend) · Chello, Iwan, Riski (Frontend)
 app/            route & view (Landing, Auth, Dashboard, Room, Laporan)
 lib/supabase/   klien Supabase (browser + server)
 docs/           PRD, PLAN, DESIGN
+docs/library/   galeri komponen + prototipe visual (referensi, bukan kode produksi)
 ```
+
+## Library Komponen (WAJIB tahu sebelum bikin UI)
+
+- `docs/library/Galeri-Komponen.html` — galeri eksplorasi tim (60+ komponen). **Buka di browser sebagai referensi.** Dari semua itu, hanya **8 komponen** yang dipakai produk — daftarnya di `docs/DESIGN.md` §3. Komponen di luar 8 itu = arsip, dilarang dipakai.
+- `docs/library/Ruang-Tim-Fondasi-V2.html` — prototipe visual acuan: token warna, transisi antar view, layout, cara kerja background engine. Buka di browser untuk lihat feel-nya — **jangan di-copy mentah jadi kode produksi**; implement ulang pakai design system di `app/globals.css`.
 
 ## Aturan kerja (wajib dibaca anggota tim)
 

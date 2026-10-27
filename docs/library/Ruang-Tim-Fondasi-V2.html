@@ -1,0 +1,993 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Ruang Tim Fondasi</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap">
+<style>
+/* ===== Token library (dari file Line Background) ===== */
+:root {
+  --c0: #0B0B0D; --c1: #202024; --c2: #45454D; --c3: #85858D; --c4: #E8E8EC;
+  --sans: 'Geist', Inter, system-ui, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+  --ease: cubic-bezier(.22, .8, .2, 1);
+  color-scheme: dark; box-sizing: border-box;
+}
+/* Layout: kanvas latar dari engine di belakang, satu area gulir berisi empat halaman bertumpuk di satu sel grid,
+   dock di bawah untuk berpindah halaman. Hanya lima warna palet. */
+*, *::before, *::after { box-sizing: inherit; }
+html { height: 100%; }
+body { margin: 0; height: 100%; overflow: hidden; background: var(--c0); color: var(--c4); font: 400 15px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+body::after { content: ""; position: fixed; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse 80% 70% at 50% 45%, transparent 40%, rgba(11,11,13,.75) 100%); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.bg-canvas { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; pointer-events: none; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+h1, h2, h3, p { margin: 0; }
+:focus-visible { outline: 2px solid var(--c4); outline-offset: 3px; border-radius: 8px; }
+.muted { color: var(--c3); }
+
+/* ===== Dock (sama seperti Library Kit) ===== */
+.dock { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 10; display: flex; gap: 2px; padding: 4px; max-width: calc(100% - 24px); overflow-x: auto; border: 1px solid rgba(232,232,236,.16); border-radius: 99px; background: rgba(32,32,36,.94); scrollbar-width: none; }
+.dock::-webkit-scrollbar { display: none; }
+.dock button { appearance: none; border: 0; background: none; color: var(--c3); border-radius: 99px; padding: 9px 16px; font: 500 13px var(--sans); white-space: nowrap; transition: background .5s var(--ease), color .5s var(--ease), transform .1s; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.dock button:hover { color: var(--c4); }
+.dock button:active { transform: scale(.97); }
+.dock button[aria-pressed=true] { background: var(--c4); color: var(--c0); }
+.dock button:focus-visible { outline: 2px solid var(--c4); outline-offset: 2px; }
+
+/* ===== Area gulir & panggung ===== */
+.scroll { position: fixed; inset: 0; z-index: 2; overflow-y: auto; overflow-x: hidden; padding-top: env(safe-area-inset-top, 0px); scrollbar-width: thin; scrollbar-color: var(--c2) transparent; }
+.stage { display: grid; min-height: 100%; padding-bottom: 110px; }
+.view { grid-area: 1 / 1; min-width: 0; }
+.wrap { width: 100%; max-width: 1160px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.view.out { animation: leave .9s var(--ease) both; pointer-events: none; }
+@keyframes leave { to { opacity: 0; filter: blur(12px); transform: translateY(-14px) scale(.985); } }
+.view.in [data-s] { animation: rise 1.3s var(--ease) both; animation-delay: calc(var(--i, 0) * 85ms + 140ms); }
+@keyframes rise { from { opacity: 0; transform: translateY(24px); filter: blur(8px); } }
+.eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--c3); }
+.panel { border: 1px solid var(--c1); border-radius: 22px; background: color-mix(in srgb, var(--c0) 86%, transparent); }
+.glow { --mx: 50%; --my: 0%; position: relative; overflow: hidden; }
+.glow::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s; background: radial-gradient(320px circle at var(--mx) var(--my), color-mix(in srgb, var(--c4) 9%, transparent), transparent 65%); }
+.glow:hover::before { opacity: 1; }
+.gen .w { display: inline-block; animation: gen 1.1s var(--ease) both; animation-delay: calc(var(--i) * 80ms + 250ms); }
+@keyframes gen { from { opacity: 0; filter: blur(12px); transform: translateY(10px); } }
+.brandrow { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 17px; letter-spacing: -.02em; padding-block: 22px 0; }
+.brandrow i { width: 24px; height: 24px; border-radius: 8px; background: var(--c4); display: grid; place-items: center; }
+.brandrow i::after { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--c0); }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--c2); background: color-mix(in srgb, var(--c0) 55%, transparent); border-radius: 999px; padding: 9px 16px; font-size: 14px; font-weight: 500; transition: background .4s, border-color .4s, transform .4s var(--ease); white-space: nowrap; }
+.btn:hover { background: var(--c1); border-color: var(--c3); }
+.btn:active { transform: scale(.97); }
+.btn.solid { background: var(--c4); color: var(--c0); border-color: transparent; font-weight: 600; }
+.btn.solid:hover { background: #fff; }
+.btn.sm { padding: 7px 13px; font-size: 13px; }
+.btn.lg { padding: 14px 26px; font-size: 15px; }
+.btn[disabled] { opacity: .4; cursor: not-allowed; }
+@property --ang { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+.btn.orbit { border: 1.5px solid transparent; background: linear-gradient(var(--c1), var(--c1)) padding-box, conic-gradient(from var(--ang), transparent 0 55%, var(--c4) 80%, transparent 100%) border-box; animation: spin 4s linear infinite; font-weight: 600; }
+@keyframes spin { to { --ang: 360deg; } }
+
+/* ===== Landing ===== */
+.hero { display: grid; grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); gap: 56px; align-items: center; padding-block: 48px 70px; }
+.hero h1 { font-size: clamp(42px, 7vw, 92px); font-weight: 600; letter-spacing: -.055em; line-height: .96; margin-top: 18px; text-wrap: balance; }
+.hero h1 .dim, .dash h1 .dim { color: var(--c3); }
+.lead { margin-top: 24px; color: var(--c3); font-size: 18px; max-width: 50ch; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
+.fine { margin-top: 18px; font-family: var(--mono); font-size: 12px; color: var(--c3); }
+.pv { transform: perspective(1200px) rotateY(-8deg) rotateX(4deg); transition: transform .4s ease-out; padding: 20px; }
+.pv-h { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--c1); font-family: var(--mono); font-size: 12px; color: var(--c3); }
+.pv-p { display: flex; align-items: baseline; gap: 10px; margin-top: 16px; }
+.pv-p b { font-size: 52px; font-weight: 600; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+.pv-p span { color: var(--c3); font-size: 13px; }
+.rows { display: grid; gap: 4px; margin-top: 14px; }
+.row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px; border-radius: 12px; font-size: 13.5px; }
+.row:nth-child(odd) { background: color-mix(in srgb, var(--c1) 55%, transparent); }
+.row .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .n { font-family: var(--mono); font-size: 12px; color: var(--c3); }
+.pfeat { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; padding-bottom: 70px; }
+.pfeat .panel { padding: 24px; display: grid; gap: 10px; align-content: start; }
+.pfeat h3 { font-size: 20px; font-weight: 600; letter-spacing: -.03em; }
+.pfeat p { color: var(--c3); font-size: 14.5px; }
+.pfeat .ic { width: 38px; height: 38px; border-radius: 12px; border: 1px solid var(--c2); display: grid; place-items: center; background: var(--c1); }
+.pfeat .ic svg { width: 19px; height: 19px; stroke: var(--c4); fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.closer { text-align: center; padding-block: 20px 60px; display: grid; justify-items: center; gap: 22px; }
+.closer h2 { font-size: clamp(30px, 5vw, 56px); font-weight: 600; letter-spacing: -.05em; line-height: 1; max-width: 18ch; text-wrap: balance; }
+.legal { border-top: 1px solid var(--c1); padding-block: 22px; font-family: var(--mono); font-size: 12px; color: var(--c3); }
+
+/* ===== Auth ===== */
+.loginwrap { min-height: calc(100vh - 110px); display: grid; place-items: center; padding-block: 24px 40px; }
+.logincard { width: min(440px, 100%); padding: 30px; display: grid; gap: 18px; }
+.logincard h1 { font-size: 30px; font-weight: 600; letter-spacing: -.04em; line-height: 1.05; }
+.logincard .sub { color: var(--c3); font-size: 14.5px; margin-top: -6px; }
+.fld { display: grid; gap: 6px; font-size: 13px; color: var(--c3); }
+.fld input, .fld textarea, .fld select { width: 100%; background: color-mix(in srgb, var(--c0) 80%, transparent); border: 1px solid var(--c2); border-radius: 12px; padding: 12px 14px; font-size: 15px; color: var(--c4); transition: border-color .4s, background .4s; }
+.fld textarea { min-height: 84px; resize: vertical; }
+.fld input:focus, .fld textarea:focus, .fld select:focus { outline: none; border-color: var(--c4); background: var(--c0); }
+.reveal { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .8s var(--ease), opacity .8s var(--ease); }
+.reveal.on { grid-template-rows: 1fr; opacity: 1; }
+.reveal > div { overflow: hidden; min-height: 0; }
+.err { min-height: 18px; font-size: 13px; color: var(--c4); }
+.sbtn { display: inline-flex; align-items: center; justify-content: center; gap: 10px; height: 50px; border: 0; border-radius: 999px; background: var(--c4); color: var(--c0); font-weight: 600; font-size: 15px; width: 100%; transition: background .5s, transform .4s var(--ease); }
+.sbtn:hover { background: #fff; }
+.sbtn:active { transform: scale(.985); }
+.sbtn.loading, .sbtn.done { background: var(--c3); pointer-events: none; }
+.sbtn svg { width: 18px; height: 18px; display: none; }
+.sbtn.loading .sp { display: block; animation: rot .8s linear infinite; }
+.sbtn.done .tk { display: block; }
+@keyframes rot { to { transform: rotate(360deg); } }
+.switch { font-size: 14px; color: var(--c3); text-align: center; }
+.switch button { appearance: none; background: transparent; border: 0; color: var(--c4); text-decoration: underline; text-underline-offset: 4px; padding: 0 2px; }
+.hint { font-family: var(--mono); font-size: 11.5px; color: var(--c3); text-align: center; }
+
+/* ===== Dashboard ===== */
+.dash { padding-block: 36px 40px; display: grid; gap: 30px; }
+.dash h1 { font-size: clamp(34px, 5.4vw, 64px); font-weight: 600; letter-spacing: -.05em; line-height: 1; margin-top: 14px; }
+.dhead { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.stat { padding: 22px; }
+.stat .num { font-size: clamp(36px, 5vw, 54px); font-weight: 600; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat span { display: block; margin-top: 8px; font-size: 13px; color: var(--c3); }
+.sechead h2 { font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
+.rooms { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
+.rcard { appearance: none; text-align: left; display: grid; gap: 16px; padding: 22px; min-width: 0; width: 100%; color: inherit; transition: border-color .5s, transform .6s var(--ease); }
+.rcard:hover { border-color: var(--c3); transform: translateY(-4px); }
+.rcard h3 { font-size: 21px; font-weight: 600; letter-spacing: -.03em; line-height: 1.15; }
+.rc-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.code { font-family: var(--mono); font-size: 11.5px; letter-spacing: .12em; border: 1px dashed var(--c2); border-radius: 8px; padding: 2px 8px; color: var(--c3); }
+.rc-pct { font-size: 40px; font-weight: 600; letter-spacing: -.05em; line-height: 1; font-variant-numeric: tabular-nums; }
+.rc-pct small { font-size: 16px; color: var(--c3); margin-left: 2px; letter-spacing: 0; }
+.rc-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; color: var(--c3); }
+.newroom { display: grid; gap: 12px; align-content: center; justify-items: start; padding: 22px; border-style: dashed; border-color: var(--c2); min-width: 0; }
+.newroom h3 { font-size: 19px; font-weight: 600; letter-spacing: -.02em; }
+.newroom form { display: flex; gap: 8px; width: 100%; flex-wrap: wrap; }
+.newroom input { flex: 1 1 140px; min-width: 0; background: color-mix(in srgb, var(--c0) 80%, transparent); border: 1px solid var(--c2); border-radius: 999px; padding: 10px 16px; font-size: 14px; }
+.newroom input:focus { outline: none; border-color: var(--c4); }
+.newroom .err { min-height: 0; }
+
+/* ===== Progress & bar ===== */
+.track { display: flex; height: 14px; border-radius: 999px; background: var(--c0); border: 1px solid var(--c2); overflow: hidden; }
+.track.big { height: 22px; }
+.seg { display: block; height: 100%; width: 0; flex: none; transition: width 1.6s var(--ease); }
+.seg.done, .sw.done { background: var(--c4); }
+.seg.review, .sw.review { background: repeating-linear-gradient(135deg, var(--c3) 0 2px, var(--c1) 2px 6px); }
+.seg.doing, .sw.doing { background: var(--c2); }
+.seg.open, .sw.open { background: transparent; }
+.sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--c3); display: inline-block; flex: none; }
+.sw.open { border-style: dashed; }
+.sw.done { border-color: var(--c4); }
+
+/* ===== Team room ===== */
+.room { padding-block: 30px 40px; display: grid; gap: 28px; }
+.rhead { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 24px; align-items: end; }
+.kick { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-family: var(--mono); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--c3); }
+.kick .code { appearance: none; background: transparent; color: var(--c4); letter-spacing: .14em; transition: background .3s; }
+.kick .code:hover { background: var(--c1); }
+.room h1 { font-size: clamp(34px, 5.8vw, 70px); font-weight: 600; letter-spacing: -.05em; line-height: .98; margin-top: 14px; text-wrap: balance; }
+.rright { display: grid; gap: 14px; justify-items: end; }
+.sel { display: flex; align-items: center; gap: 8px; border: 1px solid var(--c2); border-radius: 999px; padding: 4px 6px 4px 14px; background: color-mix(in srgb, var(--c0) 60%, transparent); font-size: 13px; color: var(--c3); }
+.sel select { appearance: none; -webkit-appearance: none; background-color: var(--c1); border: 0; border-radius: 999px; padding: 6px 28px 6px 12px; color: var(--c4); max-width: 190px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2385858D' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; }
+.avs { display: flex; padding-left: 12px; }
+.av { --rx: 0deg; --tx: 0px; position: relative; width: 40px; height: 40px; margin-left: -12px; border-radius: 50%; border: 3px solid var(--c0); background: var(--c1); box-shadow: 0 0 0 1px var(--c2); display: grid; place-items: center; font-weight: 600; font-size: 14px; flex: none; transition: transform .4s var(--ease); }
+.av.alt { background: var(--c2); }
+.av.lead { box-shadow: 0 0 0 2px var(--c4); }
+.av.mini { width: 24px; height: 24px; margin: 0; border-width: 0; font-size: 11px; box-shadow: 0 0 0 1px var(--c2); }
+.av.mini.lead { box-shadow: 0 0 0 1.5px var(--c4); }
+.avs .av:hover { transform: scale(1.12); z-index: 3; }
+.av .tip { position: absolute; bottom: calc(100% + 10px); left: 50%; width: max-content; opacity: 0; pointer-events: none; transform: translateX(calc(-50% + var(--tx))) rotate(var(--rx)) translateY(6px); background: var(--c4); color: var(--c0); border-radius: 10px; padding: 7px 11px; text-align: center; transition: opacity .3s, transform .15s ease-out; z-index: 5; line-height: 1.3; font-weight: 400; }
+.avs .av:hover .tip { opacity: 1; transform: translateX(calc(-50% + var(--tx))) rotate(var(--rx)) translateY(0); }
+.tip b { display: block; font-size: 12.5px; font-weight: 600; }
+.tip span { font-size: 11px; opacity: .7; }
+.progbox { padding: 26px; display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 36px; }
+.pct { font-size: clamp(56px, 9vw, 104px); font-weight: 600; letter-spacing: -.06em; line-height: .9; font-variant-numeric: tabular-nums; }
+.pct small { font-size: .34em; letter-spacing: -.02em; color: var(--c3); margin-left: 4px; }
+.pts { margin-top: 10px; color: var(--c3); font-size: 14px; }
+.pts b { color: var(--c4); font-weight: 500; font-variant-numeric: tabular-nums; }
+.progbox .track { margin-top: 22px; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 16px; font-size: 13px; color: var(--c3); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.mem { display: grid; gap: 12px; align-content: start; }
+.mem h2, .box h2 { font-size: 12px; font-family: var(--mono); font-weight: 400; letter-spacing: .1em; text-transform: uppercase; color: var(--c3); }
+.mrow { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 13px; }
+.mrow .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mrow .track { height: 8px; margin: 0; }
+.mrow .n { font-family: var(--mono); font-size: 12px; color: var(--c3); font-variant-numeric: tabular-nums; }
+.board { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; }
+.tabs { position: relative; display: flex; gap: 2px; padding: 4px; border: 1px solid var(--c1); border-radius: 999px; width: max-content; max-width: 100%; overflow-x: auto; scrollbar-width: none; background: color-mix(in srgb, var(--c0) 60%, transparent); }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs .pill { position: absolute; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: 999px; background: var(--c1); border: 1px solid var(--c2); transition: left .6s var(--ease), width .6s var(--ease); }
+.tabs button { position: relative; z-index: 1; appearance: none; background: transparent; border: 0; padding: 8px 14px; font-size: 14px; color: var(--c3); border-radius: 999px; white-space: nowrap; transition: color .4s; }
+.tabs button[aria-selected="true"] { color: var(--c4); }
+.tabs button em { font-style: normal; font-family: var(--mono); font-size: 11px; margin-left: 6px; color: var(--c3); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-top: 18px; }
+.card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 18px; border-radius: 18px; }
+.ctop { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.st { display: inline-flex; align-items: center; gap: 7px; font-family: var(--mono); font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase; color: var(--c3); }
+.st svg { width: 15px; height: 15px; flex: none; stroke: var(--c4); fill: none; stroke-width: 1.8; }
+.st.done { color: var(--c4); }
+.pt { font-family: var(--mono); font-size: 12px; border: 1px solid var(--c2); border-radius: 999px; padding: 2px 10px; font-variant-numeric: tabular-nums; }
+.card h3 { font-size: 17px; font-weight: 600; letter-spacing: -.02em; line-height: 1.25; }
+.card .desc { color: var(--c3); font-size: 13.5px; }
+.meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.who { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.who.none { color: var(--c3); }
+.nobody { width: 24px; height: 24px; border-radius: 50%; border: 1px dashed var(--c3); flex: none; }
+.due { font-family: var(--mono); font-size: 12px; color: var(--c3); }
+.due.late { color: var(--c0); background: var(--c4); border-radius: 6px; padding: 1px 7px; }
+.note { font-size: 13px; border-left: 2px solid var(--c2); padding-left: 10px; color: var(--c3); }
+.note b { color: var(--c4); font-weight: 500; }
+.rev { border: 1px dashed var(--c2); border-radius: 12px; padding: 12px; display: grid; gap: 10px; font-size: 13px; }
+.slots { display: flex; gap: 6px; align-items: center; }
+.slots i { width: 22px; height: 6px; border-radius: 999px; background: var(--c1); border: 1px solid var(--c2); }
+.slots i.on { background: var(--c4); border-color: var(--c4); }
+.slots span { margin-left: 8px; font-family: var(--mono); font-size: 12px; color: var(--c3); }
+.votes { display: grid; gap: 4px; color: var(--c3); font-size: 12.5px; }
+.votes b { color: var(--c4); font-weight: 500; }
+.acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; padding-top: 4px; align-items: center; }
+.assign { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--c3); margin-left: auto; }
+.assign select { appearance: none; -webkit-appearance: none; background-color: var(--c1); border: 1px solid var(--c2); border-radius: 999px; padding: 5px 24px 5px 10px; font-size: 12px; max-width: 140px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2385858D' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; }
+.empty { grid-column: 1 / -1; border: 1px dashed var(--c2); border-radius: 18px; padding: 44px 20px; text-align: center; color: var(--c3); display: grid; gap: 14px; justify-items: center; }
+.empty h3 { color: var(--c4); font-size: 18px; font-weight: 600; letter-spacing: -.02em; }
+.aside { display: grid; gap: 14px; position: sticky; top: 24px; }
+.box { padding: 18px; }
+.box h2 { margin-bottom: 14px; }
+.ppl { display: grid; gap: 10px; }
+.prow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; font-size: 14px; }
+.prow small { display: block; color: var(--c3); font-size: 12px; }
+.prow .role { font-family: var(--mono); font-size: 11px; border: 1px solid var(--c2); border-radius: 999px; padding: 1px 8px; color: var(--c3); }
+.feed { display: grid; max-height: 340px; overflow-y: auto; }
+.fi { display: grid; gap: 2px; padding: 10px 0; border-top: 1px solid var(--c1); font-size: 13.5px; }
+.fi:first-child { border-top: 0; padding-top: 0; }
+.fi time { font-family: var(--mono); font-size: 11px; color: var(--c3); }
+.fi b { font-weight: 500; }
+
+/* ===== Modal & toast ===== */
+.ov { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; background: color-mix(in srgb, var(--c0) 84%, transparent); padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); animation: fade .5s var(--ease); }
+@keyframes fade { from { opacity: 0; } }
+.modal { width: min(460px, 100%); max-height: 100%; overflow-y: auto; border: 1px solid var(--c2); border-radius: 22px; background: var(--c1); padding: 24px; display: grid; gap: 16px; animation: mrise .8s var(--ease); }
+@keyframes mrise { from { opacity: 0; transform: translateY(20px) scale(.97); filter: blur(6px); } }
+.modal h2 { font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
+.modal p.sub { color: var(--c3); font-size: 14px; margin-top: -8px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.mact { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.toast { position: fixed; left: 50%; bottom: calc(76px + env(safe-area-inset-bottom, 0px)); translate: -50% 0; z-index: 120; background: var(--c4); color: var(--c0); font-weight: 500; font-size: 14px; padding: 11px 18px; border-radius: 999px; box-shadow: 0 10px 30px rgba(0,0,0,.5); transition: opacity .6s var(--ease), transform .6s var(--ease); max-width: calc(100% - 32px); text-align: center; }
+.toast.off { opacity: 0; transform: translateY(14px); pointer-events: none; }
+
+/* ===== Responsif ===== */
+@media (max-width: 960px) {
+  .hero { grid-template-columns: minmax(0, 1fr); gap: 44px; padding-top: 24px; }
+  .pv { transform: none; }
+  .pfeat { grid-template-columns: minmax(0, 1fr); }
+  .progbox { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .board { grid-template-columns: minmax(0, 1fr); }
+  .aside { position: static; }
+  .rhead { grid-template-columns: minmax(0, 1fr); }
+  .rright { justify-items: start; }
+}
+@media (max-width: 560px) {
+  .stats { grid-template-columns: minmax(0, 1fr); }
+  .stat { padding: 16px 20px; }
+  .two { grid-template-columns: 1fr; }
+  .progbox { padding: 18px; }
+  .logincard { padding: 22px; }
+  .mrow { grid-template-columns: 52px minmax(0, 1fr) auto; }
+  .dock button { padding: 9px 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn.orbit { animation: none; }
+  .view.out { animation: leaveR .3s linear both; }
+  @keyframes leaveR { to { opacity: 0; } }
+  .view.in [data-s], .gen .w, .modal, .ov { animation: none; }
+  .seg, .tabs .pill, .reveal, .pv { transition: none; }
+}
+</style>
+
+<h1 class="sr">Ruang Tim: aplikasi progres kerja kelompok dengan latar belakang hidup</h1>
+
+<main class="scroll" id="scroll">
+  <div class="stage" id="stage">
+
+    <!-- ===== Landing ===== -->
+    <section class="view" id="v-landing" data-view="landing">
+      <div class="wrap">
+        <div class="brandrow" data-s><i></i>Ruang Tim</div>
+        <div class="hero">
+          <div>
+            <p class="eyebrow" data-s>Kerja kelompok yang adil dan terlihat</p>
+            <h1 class="gen" id="heroH"></h1>
+            <p class="lead" data-s>Ketua membagi tugas berpoin, anggota mengambil porsinya, dan hasil baru dihitung setelah disetujui teman satu kelompok. Progress bar bergerak sesuai poin yang benar-benar selesai.</p>
+            <div class="ctas" data-s>
+              <button class="btn orbit lg" type="button" data-go="auth">Mulai gratis</button>
+              <button class="btn lg" type="button" data-go="team" data-room="0">Lihat contoh ruangan</button>
+            </div>
+            <p class="fine" data-s>Tanpa kartu kredit · Gabung lewat kode ruangan</p>
+          </div>
+          <div class="panel pv glow" data-s id="pv">
+            <div class="pv-h"><span>Riset Pasar Digital</span><span>RPD-4K7</span></div>
+            <div class="pv-p"><b id="pvN">40</b><span>% poin disetujui</span></div>
+            <div class="track" style="margin-top:14px"><i class="seg done" id="pvA"></i><i class="seg review" id="pvB"></i><i class="seg doing" id="pvC"></i></div>
+            <div class="rows">
+              <div class="row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8E8EC" stroke-width="1.8"><circle cx="12" cy="12" r="8.5" fill="#E8E8EC"/><path d="M8 12.4l2.8 2.8L16.2 9.6" stroke="#0B0B0D" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t">Tulis bab latar belakang</span><span class="n">10 poin</span></div>
+              <div class="row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8E8EC" stroke-width="1.8"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/><path d="M12 7.5V12l3 2" stroke-linecap="round"/></svg><span class="t">Rangkum 10 jurnal acuan</span><span class="n">1/2 setuju</span></div>
+              <div class="row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8E8EC" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" fill="#E8E8EC"/></svg><span class="t">Kumpulkan 30 responden</span><span class="n">20 poin</span></div>
+              <div class="row"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E8E8EC" stroke-width="1.8"><circle cx="12" cy="12" r="8.5" stroke-dasharray="1.5 3.5" stroke-linecap="round"/></svg><span class="t">Desain slide presentasi</span><span class="n">bisa diambil</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="pfeat">
+          <div class="panel glow" data-s><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h10M4 17h6"/></svg></span><h3>Tugas berpoin</h3><p>Ketua memecah pekerjaan menjadi tugas dengan bobot poin. Progress dihitung dari bobot, bukan dari jumlah tugas.</p></div>
+          <div class="panel glow" data-s><span class="ic"><svg viewBox="0 0 24 24"><path d="M7 7l-4 5 4 5M17 7l4 5-4 5M14 5l-4 14"/></svg></span><h3>Porsi bisa diambil alih</h3><p>Tugas yang dilepas atau lewat tenggat terbuka untuk anggota lain, dengan tenggat baru yang jelas.</p></div>
+          <div class="panel glow" data-s><span class="ic"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><h3>Disetujui teman</h3><p>Hasil tidak langsung dihitung. Mayoritas anggota lain harus setuju, atau memberi catatan revisi.</p></div>
+        </div>
+        <div class="closer" data-s>
+          <h2>Semua orang tahu siapa mengerjakan apa.</h2>
+          <button class="btn orbit lg" type="button" data-go="auth">Buat ruangan pertama</button>
+        </div>
+      </div>
+      <div class="legal"><div class="wrap">Prototipe tampilan. Semua nama, kode, dan data adalah contoh.</div></div>
+    </section>
+
+    <!-- ===== Auth ===== -->
+    <section class="view" id="v-auth" data-view="auth" hidden>
+      <div class="wrap loginwrap">
+        <form class="panel logincard" id="loginForm" novalidate>
+          <div data-s><p class="eyebrow" id="lgEye">Selamat datang kembali</p></div>
+          <div data-s><h1 id="lgTitle">Masuk ke Ruang Tim</h1></div>
+          <p class="sub" data-s id="lgSub">Lanjutkan ke ruangan kelompok Anda.</p>
+          <div class="reveal" id="nameRev" data-s><div><label class="fld">Nama panggilan<input id="lgName" type="text" autocomplete="nickname" placeholder="Contoh: Ayu" tabindex="-1"></label></div></div>
+          <label class="fld" data-s>Email<input id="lgEmail" type="email" autocomplete="email" value="ayu@kampus.id"></label>
+          <label class="fld" data-s>Kata sandi<input id="lgPass" type="password" autocomplete="current-password" value="rahasia123"></label>
+          <div class="err" id="lgErr" aria-live="polite" data-s></div>
+          <button class="sbtn" id="lgBtn" data-s type="submit">
+            <svg class="sp" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 3a9 9 0 1 0 9 9"/></svg>
+            <svg class="tk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+            <span id="lgBtnL">Masuk</span>
+          </button>
+          <p class="switch" data-s><span id="swTxt">Belum punya akun?</span> <button type="button" id="swBtn">Daftar</button></p>
+          <p class="hint" data-s>Mode contoh: data sudah terisi, tinggal tekan masuk.</p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ===== Dashboard ===== -->
+    <section class="view" id="v-dashboard" data-view="dashboard" hidden>
+      <div class="wrap dash">
+        <div class="dhead">
+          <div>
+            <p class="eyebrow" data-s id="dsDate"></p>
+            <h1 data-s>Halo, Ayu. <span class="dim">Ini kerja kelompok Anda.</span></h1>
+          </div>
+          <button class="btn sm" type="button" data-go="landing" data-s>Keluar</button>
+        </div>
+        <div class="stats">
+          <div class="panel stat glow" data-s><div class="num" id="stA">0</div><span>ruangan aktif</span></div>
+          <div class="panel stat glow" data-s><div class="num" id="stB">0</div><span>tugas Anda yang berjalan</span></div>
+          <div class="panel stat glow" data-s><div class="num" id="stC">0</div><span>poin Anda yang disetujui</span></div>
+        </div>
+        <div class="sechead" data-s><h2>Ruangan Anda</h2></div>
+        <div class="rooms" id="rooms"></div>
+      </div>
+    </section>
+
+    <!-- ===== Team room ===== -->
+    <section class="view" id="v-team" data-view="team" hidden>
+      <div class="wrap room">
+        <div class="rhead">
+          <div>
+            <div class="kick" data-s><span>Kode ruangan</span><button class="code" id="rmCode" type="button" aria-label="Salin kode ruangan"></button><span id="rmRole"></span></div>
+            <h1 data-s id="rmName"></h1>
+          </div>
+          <div class="rright" data-s>
+            <label class="sel">Lihat sebagai <select id="meSel" aria-label="Lihat sebagai anggota"></select></label>
+            <div class="avs" id="rmAvs"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+              <button class="btn sm" type="button" data-go="dashboard">Semua ruangan</button>
+              <button class="btn orbit sm" id="addTask" type="button">Tambah tugas</button>
+            </div>
+          </div>
+        </div>
+        <div class="panel progbox" data-s>
+          <div>
+            <div class="pct" id="rmPct"></div>
+            <p class="pts" id="rmPts"></p>
+            <div class="track big" id="rmTrack"><i class="seg done"></i><i class="seg review"></i><i class="seg doing"></i><i class="seg open"></i></div>
+            <div class="legend">
+              <span><i class="sw done"></i>Disetujui</span><span><i class="sw review"></i>Menunggu persetujuan</span><span><i class="sw doing"></i>Sedang dikerjakan</span><span><i class="sw open"></i>Belum diambil</span>
+            </div>
+          </div>
+          <div class="mem" id="rmMem"></div>
+        </div>
+        <div class="board">
+          <section data-s aria-label="Papan tugas">
+            <div class="tabs" id="tabs" role="tablist"><span class="pill"></span></div>
+            <div class="cards" id="cards"></div>
+          </section>
+          <aside class="aside" data-s>
+            <div class="panel box"><h2>Anggota</h2><div class="ppl" id="ppl"></div></div>
+            <div class="panel box"><h2>Aktivitas</h2><div class="feed" id="feed"></div></div>
+          </aside>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<nav class="dock" aria-label="Pilih halaman">
+  <button type="button" data-s="landing" aria-pressed="true">Landing</button>
+  <button type="button" data-s="auth" aria-pressed="false">Auth</button>
+  <button type="button" data-s="dashboard" aria-pressed="false">Dashboard</button>
+  <button type="button" data-s="team" aria-pressed="false">Team Room</button>
+</nav>
+
+<div class="ov" id="ov" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+<div class="toast off" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/* =====================================================================
+   LINE BACKGROUND ENGINE (garis mengalir, elegan): salin blok ini saja
+   Pakai: setBackgroundState('landing' | 'auth' | 'dashboard' | 'team')
+   Nama lain juga diterima: 'view-auth', 'AuthView', 'TeamRoomView'
+   Semua suasana berangkat dari helai garis yang sama lalu dilengkungkan,
+   jadi peralihan antar halaman meluncur halus tanpa garis saling silang.
+   ===================================================================== */
+(function (global) {
+  'use strict';
+  var cfg = { duration: 2400, rgb: '232,232,236', initial: null, lines: 26 };
+  var NAMES = { landing: 1, auth: 1, dashboard: 1, team: 1 };
+  var M = 48, L = 26, cv, ctx, W, H, DPR, F, T, R, D;
+  var cur = 'landing', tr = 1, tStart = 0, t0 = 0, raf = 0, ready = false, last = 0, slow = 0, capDPR = 1.5, rzT = 0;
+  var mx = 0, my = 0, act = 0, want = 0, px = 0, py = 0, tpx = 0, tpy = 0, ex = 0, ey = 0, handlers = [];
+  var reduce = !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function hs(n) { var s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); }
+  function ease(p) { return p * p * p * (p * (p * 6 - 15) + 10); }
+  function norm(n) { n = String(n || '').toLowerCase().replace(/^view[-_]?/, '').replace(/[-_]?view$/, '').replace(/room$/, ''); return NAMES[n] ? n : null; }
+
+  function ev(n, i, j, t) {
+    var u = j / (M - 1), q = i / (L - 1), m = Math.min(W, H), bx, by, dx, dy, d, th, c, sn, y0;
+    bx = (u * 1.2 - 0.1) * W;
+    by = H * (0.1 + 0.8 * q) + Math.sin(u * 5 + t * 0.5 + i * 0.19) * H * 0.05 * (0.6 + 0.4 * Math.sin(i * 0.31 + t * 0.2)) + Math.sin(u * 12 - t * 0.35 + i * 0.4) * H * 0.012;
+    if (n === 'landing') { ex = bx; ey = by; return; }
+    if (n === 'auth') {
+      dx = bx - W / 2; dy = by - H / 2; d = Math.sqrt(dx * dx + dy * dy) / (m * 0.46);
+      th = (3.4 + 0.5 * Math.sin(t * 0.4)) * Math.exp(-d * d); c = Math.cos(th); sn = Math.sin(th);
+      ex = W / 2 + dx * c - dy * sn; ey = H / 2 + dx * sn + dy * c; return;
+    }
+    if (n === 'dashboard') {
+      d = (u - ((t * 0.09) % 1.5 - 0.25)) / 0.13;
+      ex = bx; ey = H / 2 + (q - 0.5) * H * 0.88 * (0.78 * Math.cos(u * 3.8 + t * 0.42) + 0.22 * Math.cos(u * 8 - t * 0.3 + q * 1.5)) + Math.sin(u * 2.2 + q * 2.4 + t * 0.3) * H * 0.07 - H * 0.24 * Math.exp(-d * d) * Math.sin(q * 3.1416); return;
+    }
+    y0 = H / 2 + (by - H / 2) * (0.22 + 0.78 * Math.pow(Math.abs(u - 0.5) * 2, 1.4));
+    ex = bx; ey = y0 + Math.sin(u * 6.2832 + q * 4 + t * 0.4) * H * 0.03;
+  }
+  function fill(A, n, t) { var i, j, k; for (i = 0; i < L; i++) for (j = 0; j < M; j++) { ev(n, i, j, t); k = (i * M + j) * 2; A[k] = ex; A[k + 1] = ey; } }
+
+  function layout() {
+    W = global.innerWidth; H = global.innerHeight; L = cfg.lines;
+    DPR = Math.min(global.devicePixelRatio || 1, capDPR);
+    cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    F = new Float32Array(L * M * 2); T = new Float32Array(L * M * 2); R = new Float32Array(L * M * 2); D = new Float32Array(L * M * 2);
+    fill(R, cur, 0); tr = 1;
+  }
+  function draw(t) {
+    var i, j, k, a, b, gi, dx, dy, d, pw, AL = [0.1, 0.24, 0.15, 0.3], LW = [0.8, 1.2, 0.9, 1.3], rad = Math.max(120, Math.min(W, H) * 0.2);
+    for (k = 0; k < D.length; k += 2) {
+      D[k] = R[k]; D[k + 1] = R[k + 1];
+      if (act > 0.01) { dx = D[k] - mx; dy = D[k + 1] - my; d = Math.sqrt(dx * dx + dy * dy); if (d < rad && d > 0.1) { pw = 1 - d / rad; pw = pw * pw * 46 * act; D[k] += dx / d * pw; D[k + 1] += dy / d * pw; } }
+    }
+    ctx.setTransform(DPR, 0, 0, DPR, px * DPR, py * DPR); ctx.clearRect(-60, -60, W + 120, H + 120);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgb(' + cfg.rgb + ')';
+    for (gi = 0; gi < 4; gi++) {   /* 4 kelompok garis = 4 kali stroke saja, bukan satu per garis */
+      ctx.globalAlpha = AL[gi]; ctx.lineWidth = LW[gi]; ctx.beginPath();
+      for (i = gi; i < L; i += 4) {
+        k = i * M * 2; ctx.moveTo(D[k], D[k + 1]);
+        for (j = 1; j < M - 1; j++) { a = k + j * 2; b = a + 2; ctx.quadraticCurveTo(D[a], D[a + 1], (D[a] + D[b]) / 2, (D[a + 1] + D[b + 1]) / 2); }
+        ctx.lineTo(D[k + (M - 1) * 2], D[k + (M - 1) * 2 + 1]);
+      }
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function step(now, t) {
+    var p, e, k;
+    if (!reduce) { act += ((want ? 1 : 0) - act) * 0.06; px += (tpx - px) * 0.05; py += (tpy - py) * 0.05; }
+    fill(T, cur, t);
+    if (tr < 1) {
+      p = Math.max(0, Math.min(1, (now - tStart) / cfg.duration)); e = ease(p);
+      for (k = 0; k < R.length; k++) R[k] = F[k] + (T[k] - F[k]) * e;
+      if (p >= 1) tr = 1;
+    } else R.set(T);
+    draw(t);
+  }
+  function frame(now) {
+    raf = global.requestAnimationFrame(frame);
+    if (!t0) t0 = now;
+    if (last) { slow = (now - last > 38) ? slow + 1 : Math.max(0, slow - 1); if (slow > 45 && capDPR > 1) { capDPR = 1; slow = 0; layout(); } }
+    last = now; step(now, (now - t0) / 1800);
+  }
+  function setState(name) {
+    var n = norm(name); if (!n) return false;
+    if (!ready) { cur = n; return true; }
+    if (n === cur) return true;
+    if (!reduce) { F.set(R); tr = 0; tStart = global.performance.now(); } else tr = 1;
+    cur = n; document.documentElement.setAttribute('data-bg', n);
+    try { document.dispatchEvent(new CustomEvent('bgstatechange', { detail: n })); } catch (e) {}
+    if (reduce) step(0, 2);
+    return true;
+  }
+  function on(el, ev2, fn, o) { el.addEventListener(ev2, fn, o); handlers.push([el, ev2, fn, o]); }
+  function init() {
+    if (ready) return;
+    cv = document.getElementById('bg-canvas');
+    if (!cv) { cv = document.createElement('canvas'); cv.id = 'bg-canvas'; cv.className = 'bg-canvas'; cv.setAttribute('aria-hidden', 'true'); document.body.insertBefore(cv, document.body.firstChild); }
+    ctx = cv.getContext('2d');
+    if (!ctx) { if (cv.parentNode) cv.parentNode.removeChild(cv); return; }
+    if (global.innerWidth < 640) capDPR = 1.5;
+    var h = (global.location && global.location.hash || '').slice(1);
+    cur = norm(cfg.initial) || norm(h) || cur; layout(); ready = true; document.documentElement.setAttribute('data-bg', cur);
+    on(global, 'pointermove', function (e) { mx = e.clientX; my = e.clientY; want = 1; tpx = (e.clientX - W / 2) * 0.03; tpy = (e.clientY - H / 2) * 0.03; }, { passive: true });
+    on(document, 'pointerleave', function () { want = 0; tpx = tpy = 0; });
+    on(global, 'pointerup', function (e) { if (e.pointerType === 'touch') { want = 0; tpx = tpy = 0; } });
+    on(global, 'resize', function () { clearTimeout(rzT); rzT = setTimeout(function () { layout(); if (reduce) step(0, 2); }, 120); });
+    on(document, 'visibilitychange', function () {
+      if (reduce) return;
+      if (document.hidden) { global.cancelAnimationFrame(raf); raf = 0; } else if (!raf) { last = 0; raf = global.requestAnimationFrame(frame); }
+    });
+    if (reduce) step(0, 2); else raf = global.requestAnimationFrame(frame);
+  }
+  function destroy() { global.cancelAnimationFrame(raf); raf = 0; handlers.forEach(function (h) { h[0].removeEventListener(h[1], h[2], h[3]); }); handlers = []; if (cv && cv.parentNode) cv.parentNode.removeChild(cv); ready = false; t0 = 0; }
+  function config(o) { for (var k in o) if (k in cfg) cfg[k] = o[k]; if (ready && o && o.lines) layout(); return cfg; }
+
+  global.BackgroundEngine = { init: init, setState: setState, getState: function () { return cur; }, config: config, destroy: destroy };
+  global.setBackgroundState = setState;
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+})(window);
+</script>
+
+<script>
+/* =====================================================================
+   APLIKASI RUANG TIM: halaman, transisi, dan data contoh
+   ===================================================================== */
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var canHover = window.matchMedia("(hover: hover)").matches;
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
+  var scroller = $("scroll");
+
+  /* ---------- Data contoh ---------- */
+  var today = new Date(); today.setHours(0, 0, 0, 0);
+  function iso(d) { var m = d.getMonth() + 1, dd = d.getDate(); return d.getFullYear() + "-" + (m < 10 ? "0" : "") + m + "-" + (dd < 10 ? "0" : "") + dd; }
+  function addDays(n) { var d = new Date(today); d.setDate(d.getDate() + n); return iso(d); }
+  function diff(s) { return Math.round((new Date(s + "T00:00:00") - today) / 864e5); }
+  function fmt(s) { return new Date(s + "T00:00:00").toLocaleDateString("id-ID", { day: "numeric", month: "short" }); }
+  var uid = 100;
+  var M = function (leadId) { return ["ayu", "bima", "citra", "dimas", "esa"].map(function (id) { return { id: id, name: id.charAt(0).toUpperCase() + id.slice(1), lead: id === leadId }; }); };
+  var rooms = [
+    { id: "r1", name: "Riset Pasar Digital", code: "RPD-4K7", members: M("ayu"), tasks: [
+      { id: 1, title: "Susun kuesioner survei", desc: "Maksimal 15 pertanyaan, uji coba ke 3 orang dulu.", points: 15, due: addDays(2), assignee: "citra", status: "doing", votes: {} },
+      { id: 2, title: "Kumpulkan 30 responden", desc: "Sebar lewat grup angkatan dan media sosial.", points: 20, due: addDays(-2), assignee: "dimas", status: "doing", votes: {} },
+      { id: 3, title: "Rangkum 10 jurnal acuan", desc: "Satu paragraf per jurnal, sertakan sitasi.", points: 15, due: addDays(-1), assignee: "bima", status: "review", votes: { esa: { v: "ok" } }, submit: { note: "Semua jurnal sudah dirangkum, ada di folder bersama.", link: "drive.example/jurnal" } },
+      { id: 4, title: "Desain slide presentasi", desc: "12 slide, pakai template kelompok.", points: 10, due: addDays(6), assignee: null, status: "open", votes: {} },
+      { id: 5, title: "Tulis bab latar belakang", desc: "Dua halaman, rujuk hasil rangkuman jurnal.", points: 10, due: addDays(-4), assignee: "ayu", status: "done", votes: {} },
+      { id: 6, title: "Olah data di spreadsheet", desc: "Bersihkan data, hitung rata-rata dan sebaran.", points: 15, due: addDays(5), assignee: "esa", status: "doing", votes: {} },
+      { id: 7, title: "Latihan presentasi", desc: "Satu kali latihan penuh dengan pewaktu.", points: 5, due: addDays(9), assignee: null, status: "open", votes: {} },
+      { id: 8, title: "Cari topik dan rumusan masalah", desc: "Disepakati bersama dosen pembimbing.", points: 10, due: addDays(-8), assignee: "esa", status: "done", votes: {} }
+    ], log: [
+      { who: "Bima", text: "mengirim hasil <b>Rangkum 10 jurnal acuan</b>", ago: "1 jam lalu" },
+      { who: "Esa", text: "menyetujui <b>Rangkum 10 jurnal acuan</b>", ago: "40 menit lalu" },
+      { who: "Esa", text: "melepas <b>Desain slide presentasi</b> agar bisa diambil", ago: "Kemarin" },
+      { who: "Ayu", text: "menambahkan tugas <b>Latihan presentasi</b>", ago: "Kemarin" }
+    ] },
+    { id: "r2", name: "Proyek Akhir Basis Data", code: "PBD-9M2", members: M("bima"), tasks: [
+      { id: 21, title: "Rancang diagram ERD", desc: "Minimal 8 entitas dan relasinya.", points: 20, due: addDays(-6), assignee: "bima", status: "done", votes: {} },
+      { id: 22, title: "Buat skema tabel di server", desc: "Sertakan kunci dan indeks.", points: 20, due: addDays(3), assignee: "ayu", status: "doing", votes: {} },
+      { id: 23, title: "Tulis 15 kueri laporan", desc: "Gabungan, agregasi, dan subkueri.", points: 25, due: addDays(7), assignee: "dimas", status: "doing", votes: {} },
+      { id: 24, title: "Uji performa dan indeks", desc: "Bandingkan waktu sebelum dan sesudah.", points: 15, due: addDays(10), assignee: null, status: "open", votes: {} },
+      { id: 25, title: "Tulis laporan akhir", desc: "Maksimal 20 halaman.", points: 20, due: addDays(12), assignee: null, status: "open", votes: {} }
+    ], log: [{ who: "Bima", text: "tugas <b>Rancang diagram ERD</b> disetujui teman satu kelompok", ago: "2 hari lalu" }] },
+    { id: "r3", name: "Panitia Pensi Angkatan", code: "PSN-6H3", members: M("citra"), tasks: [
+      { id: 31, title: "Survei lokasi dan harga sewa", desc: "Bandingkan tiga opsi gedung.", points: 10, due: addDays(-1), assignee: "ayu", status: "review", votes: {}, submit: { note: "Tiga opsi sudah dibandingkan, rekomendasi di dokumen.", link: "" } },
+      { id: 32, title: "Hubungi pengisi acara", desc: "Siapkan lima kandidat dan kisaran biaya.", points: 15, due: addDays(4), assignee: "esa", status: "doing", votes: {} },
+      { id: 33, title: "Susun anggaran awal", desc: "Pemasukan, pengeluaran, dan cadangan.", points: 15, due: addDays(6), assignee: null, status: "open", votes: {} },
+      { id: 34, title: "Desain poster dan tiket", desc: "Dua ukuran: media sosial dan cetak.", points: 10, due: addDays(9), assignee: null, status: "open", votes: {} }
+    ], log: [{ who: "Citra", text: "membuat ruangan <b>Panitia Pensi Angkatan</b>", ago: "4 hari lalu" }] }
+  ];
+  var state = { view: "landing", room: 0, me: "ayu", tab: "all" };
+  function R() { return rooms[state.room]; }
+  function member(id) { return R().members.filter(function (m) { return m.id === id; })[0]; }
+  function me() { return member(state.me) || R().members[0]; }
+  function isLead() { return !!me().lead; }
+  function needed() { return Math.floor((R().members.length - 1) / 2) + 1; }
+  function sum(list) { return list.reduce(function (a, t) { return a + t.points; }, 0); }
+  function stat(r, s) { return sum(r.tasks.filter(function (t) { return t.status === s; })); }
+  function pctOf(r) { var tot = sum(r.tasks); return tot ? Math.round(stat(r, "done") / tot * 100) : 0; }
+  function overdue(t) { return t.status === "doing" && diff(t.due) < 0; }
+  function canTake(t) { return t.assignee !== me().id && (t.status === "open" || overdue(t)); }
+  function log(text) { R().log.unshift({ who: me().name, text: text, ago: "baru saja" }); }
+
+  var ICON = {
+    doing: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 0 1 0 17z" style="fill:var(--c4)"/></svg>',
+    review: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" stroke-dasharray="3 3"/><path d="M12 7.5V12l3 2" stroke-linecap="round"/></svg>',
+    open: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" stroke-dasharray="1.5 3.5" stroke-linecap="round"/></svg>',
+    done: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5" style="fill:var(--c4)"/><path d="M8 12.4l2.8 2.8L16.2 9.6" style="stroke:var(--c0)" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+  var LABEL = { doing: "Dikerjakan", review: "Perlu disetujui", open: "Bisa diambil", done: "Selesai" };
+  function avatar(m, o) {
+    o = o || {}; var idx = R().members.indexOf(m);
+    var cls = "av" + (idx % 2 ? " alt" : "") + (m.lead ? " lead" : "") + (o.mini ? " mini" : "");
+    var tip = o.tip ? '<div class="tip"><b>' + esc(m.name) + "</b><span>" + (m.lead ? "Ketua" : "Anggota") + "</span></div>" : "";
+    return '<div class="' + cls + '">' + esc(m.name.charAt(0).toUpperCase()) + tip + "</div>";
+  }
+  function ticker(el, to, dur, delay) {
+    if (reduce) { el.textContent = to; return; }
+    el.textContent = "0";
+    setTimeout(function () {
+      var t0 = null;
+      (function step(ts) {
+        if (!t0) t0 = ts;
+        var p = Math.min(1, (ts - t0) / dur), e = 1 - Math.pow(1 - p, 3);
+        el.textContent = Math.round(to * e);
+        if (p < 1) requestAnimationFrame(step);
+      })(performance.now());
+    }, delay || 0);
+  }
+
+  /* ---------- Toast & modal ---------- */
+  var toastT;
+  function toast(msg) { var t = $("toast"); t.textContent = msg; t.classList.remove("off"); clearTimeout(toastT); toastT = setTimeout(function () { t.classList.add("off"); }, 2600); }
+  function openModal(html, mount) {
+    $("modal").innerHTML = html; $("ov").hidden = false;
+    var f = $("modal").querySelector("input, textarea, select"); if (f) setTimeout(function () { f.focus(); }, 120);
+    if (mount) mount($("modal"));
+    $("modal").querySelectorAll("[data-close]").forEach(function (b) { b.addEventListener("click", closeModal); });
+  }
+  function closeModal() { $("ov").hidden = true; $("modal").innerHTML = ""; }
+  $("ov").addEventListener("click", function (e) { if (e.target === $("ov")) closeModal(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape" && !$("ov").hidden) closeModal(); });
+
+  /* ---------- Router: dock + transisi pelan, latar ikut berubah lewat engine ---------- */
+  var views = { landing: $("v-landing"), auth: $("v-auth"), dashboard: $("v-dashboard"), team: $("v-team") };
+  var dockBtns = [].slice.call(document.querySelectorAll(".dock button"));
+  function syncDock(s) { dockBtns.forEach(function (b) { b.setAttribute("aria-pressed", b.dataset.s === s ? "true" : "false"); }); }
+  var busy = false, TIME_OUT = reduce ? 300 : 900, TIME_IN = reduce ? 200 : 450;
+  function stagger(view) { view.querySelectorAll("[data-s]").forEach(function (e, i) { e.style.setProperty("--i", i); }); }
+  function enterHooks(name) {
+    if (name === "landing") { heroText(); previewBars(); }
+    if (name === "auth") { setTimeout(function () { var f = $("lgEmail"); if (f && !reduce && canHover) f.focus({ preventScroll: true }); }, 1100); }
+    if (name === "dashboard") renderDashboard();
+    if (name === "team") renderRoom(true);
+  }
+  function go(name) {
+    if (!views[name] || busy || name === state.view) return;
+    busy = true;
+    var from = views[state.view], to = views[name];
+    window.setBackgroundState(name); syncDock(name);
+    from.classList.add("out");
+    setTimeout(function () {
+      state.view = name;
+      to.hidden = false;
+      enterHooks(name); stagger(to);
+      to.classList.add("in");
+      scroller.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
+      if (name === "team") requestAnimationFrame(placePill);
+    }, TIME_IN);
+    setTimeout(function () {
+      from.hidden = true; from.classList.remove("out"); from.classList.remove("in");
+      busy = false;
+      if (name === "team") placePill();
+    }, TIME_OUT + 120);
+  }
+  dockBtns.forEach(function (b) { b.addEventListener("click", function () { if (b.dataset.s === "team" && state.view !== "team") { state.me = "ayu"; state.tab = "all"; } go(b.dataset.s); }); });
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-go]");
+    if (b) { if (b.dataset.room !== undefined) { state.room = Number(b.dataset.room); state.me = "ayu"; state.tab = "all"; } go(b.dataset.go); return; }
+    var o = e.target.closest("[data-open]");
+    if (o) { state.room = Number(o.dataset.open); state.me = "ayu"; state.tab = "all"; go("team"); }
+  });
+
+  /* ---------- Landing ---------- */
+  function heroText() {
+    var h = $("heroH"); if (h.dataset.done) return; h.dataset.done = "1";
+    [["Kerja", 0], ["kelompok", 0], ["yang", 0], ["kelihatan", 1], ["progresnya.", 1]].forEach(function (p, i) {
+      var s = document.createElement("span"); s.className = "w" + (p[1] ? " dim" : ""); s.style.setProperty("--i", i); s.textContent = p[0];
+      h.appendChild(s); h.appendChild(document.createTextNode(" "));
+    });
+  }
+  function previewBars() {
+    var a = $("pvA"), b = $("pvB"), c = $("pvC");
+    [a, b, c].forEach(function (e) { e.style.width = "0%"; });
+    setTimeout(function () { a.style.width = "40%"; b.style.width = "15%"; c.style.width = "30%"; }, 900);
+    ticker($("pvN"), 40, 1500, 900);
+  }
+  var pv = $("pv");
+  if (canHover && !reduce) {
+    pv.addEventListener("pointermove", function (e) {
+      var r = pv.getBoundingClientRect(), x = (e.clientX - r.left) / r.width - 0.5, y = (e.clientY - r.top) / r.height - 0.5;
+      pv.style.transform = "perspective(1200px) rotateY(" + (-8 + x * 10).toFixed(1) + "deg) rotateX(" + (4 - y * 10).toFixed(1) + "deg)";
+    });
+    pv.addEventListener("pointerleave", function () { pv.style.transform = ""; });
+  }
+
+  /* ---------- Auth ---------- */
+  var signup = false, lgBusy = false;
+  function setMode(s) {
+    signup = s;
+    $("nameRev").classList.toggle("on", s); $("lgName").tabIndex = s ? 0 : -1;
+    $("lgEye").textContent = s ? "Mulai dalam semenit" : "Selamat datang kembali";
+    $("lgTitle").textContent = s ? "Buat akun Ruang Tim" : "Masuk ke Ruang Tim";
+    $("lgSub").textContent = s ? "Satu akun untuk semua kelompok Anda." : "Lanjutkan ke ruangan kelompok Anda.";
+    $("lgBtnL").textContent = s ? "Daftar dan masuk" : "Masuk";
+    $("swTxt").textContent = s ? "Sudah punya akun?" : "Belum punya akun?";
+    $("swBtn").textContent = s ? "Masuk" : "Daftar";
+    $("lgPass").autocomplete = s ? "new-password" : "current-password";
+    $("lgErr").textContent = "";
+  }
+  $("swBtn").addEventListener("click", function () { setMode(!signup); });
+  $("loginForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (lgBusy) return;
+    var em = $("lgEmail").value.trim(), pw = $("lgPass").value, err = $("lgErr");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) { err.textContent = "Alamat email belum benar. Contoh: nama@kampus.id"; return; }
+    if (pw.length < 6) { err.textContent = "Kata sandi minimal 6 karakter."; return; }
+    if (signup && !$("lgName").value.trim()) { err.textContent = "Isi nama panggilan dulu."; return; }
+    err.textContent = ""; lgBusy = true;
+    var btn = $("lgBtn"), lab = $("lgBtnL"), old = lab.textContent;
+    btn.classList.add("loading"); lab.textContent = "Memeriksa";
+    setTimeout(function () {
+      btn.classList.remove("loading"); btn.classList.add("done"); lab.textContent = "Berhasil";
+      setTimeout(function () {
+        go("dashboard");
+        setTimeout(function () { btn.classList.remove("done"); lab.textContent = old; lgBusy = false; }, 1400);
+      }, 700);
+    }, 1200);
+  });
+
+  /* ---------- Dashboard ---------- */
+  function renderDashboard() {
+    $("dsDate").textContent = today.toLocaleDateString("id-ID", { weekday: "long", day: "numeric", month: "long" });
+    var mineActive = 0, minePts = 0;
+    rooms.forEach(function (r) { r.tasks.forEach(function (t) { if (t.assignee === "ayu") { if (t.status === "doing" || t.status === "review") mineActive++; if (t.status === "done") minePts += t.points; } }); });
+    ticker($("stA"), rooms.length, 1400, 600); ticker($("stB"), mineActive, 1400, 700); ticker($("stC"), minePts, 1600, 800);
+    var wrap = $("rooms");
+    wrap.innerHTML = rooms.map(function (r, i) {
+      var tot = sum(r.tasks), d = stat(r, "done"), rv = stat(r, "review"), dg = stat(r, "doing");
+      var lead = r.members.filter(function (m) { return m.lead; })[0];
+      var avs = r.members.slice(0, 5).map(function (m, k) { return '<div class="av mini' + (k % 2 ? " alt" : "") + (m.lead ? " lead" : "") + '" style="margin-left:' + (k ? "-8px" : "0") + ';border:2px solid var(--c0)">' + esc(m.name.charAt(0)) + "</div>"; }).join("");
+      var left = r.tasks.filter(function (t) { return t.status !== "done"; }).length;
+      return '<button class="panel glow rcard" type="button" data-open="' + i + '" data-s><div class="rc-top"><span class="code">' + esc(r.code) + '</span><span class="muted" style="font-size:12.5px">Ketua: ' + esc(lead ? lead.name : "-") + '</span></div><h3>' + esc(r.name) + '</h3><div class="rc-pct" data-pct="' + pctOf(r) + '">0<small>%</small></div><div class="track"><i class="seg done" data-w="' + (tot ? d / tot * 100 : 0) + '"></i><i class="seg review" data-w="' + (tot ? rv / tot * 100 : 0) + '"></i><i class="seg doing" data-w="' + (tot ? dg / tot * 100 : 0) + '"></i></div><div class="rc-foot"><span style="display:flex;align-items:center">' + avs + "</span><span>" + left + " tugas tersisa</span></div></button>";
+    }).join("") +
+      '<div class="panel newroom" data-s><h3>Buat ruangan baru</h3><p class="muted" style="font-size:13.5px">Anda jadi ketua. Teman bergabung lewat kode.</p><form id="nrForm"><input id="nrName" maxlength="40" placeholder="Nama ruangan" aria-label="Nama ruangan baru"><button class="btn solid sm" type="submit">Buat</button></form><div class="err" id="nrErr"></div></div>' +
+      '<div class="panel newroom" data-s><h3>Gabung pakai kode</h3><p class="muted" style="font-size:13.5px">Contoh kode: RPD-4K7, PBD-9M2, PSN-6H3.</p><form id="jnForm"><input id="jnCode" maxlength="7" placeholder="ABC-123" aria-label="Kode ruangan" style="text-transform:uppercase"><button class="btn sm" type="submit">Gabung</button></form><div class="err" id="jnErr"></div></div>';
+    setTimeout(function () {
+      wrap.querySelectorAll("[data-w]").forEach(function (e) { e.style.width = e.dataset.w + "%"; });
+      wrap.querySelectorAll("[data-pct]").forEach(function (e) {
+        var to = Number(e.dataset.pct); ticker(e, to, 1500, 0);
+        setTimeout(function () { e.innerHTML = to + "<small>%</small>"; }, reduce ? 0 : 1600);
+      });
+    }, 900);
+    $("nrForm").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var v = $("nrName").value.trim();
+      if (!v) { $("nrErr").textContent = "Isi nama ruangan dulu."; return; }
+      var ch = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", c = "";
+      for (var i = 0; i < 3; i++) c += ch[Math.floor(Math.random() * ch.length)];
+      c += "-"; for (var j = 0; j < 3; j++) c += ch[Math.floor(Math.random() * ch.length)];
+      rooms.push({ id: "r" + uid++, name: v, code: c, members: [{ id: "ayu", name: "Ayu", lead: true }], tasks: [], log: [{ who: "Ayu", text: "membuat ruangan <b>" + esc(v) + "</b>", ago: "baru saja" }] });
+      state.room = rooms.length - 1; state.me = "ayu"; state.tab = "all";
+      toast("Ruangan dibuat. Kode: " + c); go("team");
+    });
+    $("jnForm").addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      var v = $("jnCode").value.trim().toUpperCase(), idx = -1;
+      rooms.forEach(function (r, i) { if (r.code === v) idx = i; });
+      if (idx < 0) { $("jnErr").textContent = "Kode tidak ditemukan. Periksa lagi."; return; }
+      state.room = idx; state.me = "ayu"; state.tab = "all"; go("team");
+    });
+  }
+
+  /* ---------- Team room ---------- */
+  function renderRoomHeader() {
+    var r = R();
+    $("rmName").textContent = r.name; $("rmCode").textContent = r.code;
+    $("rmRole").textContent = isLead() ? "· Anda ketua" : "· Anda anggota";
+    $("rmAvs").innerHTML = r.members.map(function (m) { return avatar(m, { tip: true }); }).join("");
+    $("meSel").innerHTML = r.members.map(function (m) { return '<option value="' + m.id + '"' + (m.id === state.me ? " selected" : "") + ">" + esc(m.name) + (m.lead ? " (Ketua)" : "") + "</option>"; }).join("");
+    $("addTask").hidden = !isLead();
+  }
+  function renderProgress(animate) {
+    var r = R(), total = sum(r.tasks), d = stat(r, "done"), rv = stat(r, "review"), dg = stat(r, "doing"), op = stat(r, "open");
+    var p = total ? Math.round(d / total * 100) : 0;
+    var setPct = function () { $("rmPct").innerHTML = p + "<small>%</small>"; };
+    setPct();
+    $("rmPts").innerHTML = "<b>" + d + "</b> dari <b>" + total + "</b> poin sudah disetujui" + (rv ? " · " + rv + " poin menunggu persetujuan" : "");
+    var tr = $("rmTrack").children, vals = [d, rv, dg, op];
+    var apply = function () { for (var i = 0; i < 4; i++) tr[i].style.width = (total ? vals[i] / total * 100 : 0) + "%"; };
+    if (animate && !reduce) {
+      for (var i = 0; i < 4; i++) tr[i].style.width = "0%";
+      setTimeout(apply, 1000);
+      ticker($("rmPct"), p, 1600, 1000); setTimeout(setPct, 2700);
+    } else requestAnimationFrame(function () { requestAnimationFrame(apply); });
+    $("rmMem").innerHTML = "<h2>Poin per anggota</h2>" + r.members.map(function (m) {
+      var mine = r.tasks.filter(function (t) { return t.assignee === m.id; });
+      var a = sum(mine.filter(function (t) { return t.status === "done"; })), b = sum(mine.filter(function (t) { return t.status === "review"; })), c = sum(mine.filter(function (t) { return t.status === "doing"; }));
+      var pc = function (v) { return (total ? v / total * 100 : 0) + "%"; };
+      return '<div class="mrow"><span class="nm">' + esc(m.name) + '</span><div class="track"><i class="seg done" style="width:' + pc(a) + '"></i><i class="seg review" style="width:' + pc(b) + '"></i><i class="seg doing" style="width:' + pc(c) + '"></i></div><span class="n">' + (a + b + c) + " poin</span></div>";
+    }).join("");
+  }
+  var TABS = [["all", "Semua"], ["doing", "Dikerjakan"], ["review", "Perlu disetujui"], ["open", "Bisa diambil"], ["done", "Selesai"]];
+  function count(k) { return k === "all" ? R().tasks.length : R().tasks.filter(function (t) { return t.status === k; }).length; }
+  function renderTabs() {
+    var el = $("tabs"), pill = el.querySelector(".pill"); el.innerHTML = ""; el.appendChild(pill);
+    TABS.forEach(function (t) {
+      var b = document.createElement("button"); b.setAttribute("role", "tab"); b.dataset.tab = t[0];
+      b.setAttribute("aria-selected", state.tab === t[0] ? "true" : "false"); b.innerHTML = esc(t[1]) + "<em>" + count(t[0]) + "</em>"; el.appendChild(b);
+    });
+    placePill();
+  }
+  function placePill() { var el = $("tabs"), pill = el.querySelector(".pill"), b = el.querySelector('[aria-selected="true"]'); if (b && b.offsetWidth) { pill.style.left = b.offsetLeft + "px"; pill.style.width = b.offsetWidth + "px"; } }
+  function dueHtml(t) {
+    if (t.status === "done") return '<span class="due">Tenggat ' + fmt(t.due) + "</span>";
+    var d = diff(t.due);
+    if (d < 0 && t.status === "doing") return '<span class="due late">Terlambat ' + (-d) + " hari</span>";
+    if (d < 0) return '<span class="due">Tenggat lewat ' + (-d) + " hari</span>";
+    return '<span class="due">' + (d === 0 ? "Hari ini" : d === 1 ? "Besok" : fmt(t.due)) + "</span>";
+  }
+  function reviewHtml(t) {
+    var need = needed(), votes = t.votes || {}, ids = Object.keys(votes);
+    var oks = ids.filter(function (k) { return votes[k].v === "ok"; }).length, slots = "";
+    for (var i = 0; i < need; i++) slots += '<i class="' + (i < oks ? "on" : "") + '"></i>';
+    var lines = ids.map(function (k) { var m = member(k), v = votes[k]; return v.v === "ok" ? "<span><b>" + esc(m.name) + "</b> setuju</span>" : "<span><b>" + esc(m.name) + "</b> minta revisi: " + esc(v.note || "") + "</span>"; }).join("");
+    var sub = t.submit ? '<div class="note"><b>Catatan pengirim:</b> ' + esc(t.submit.note || "-") + (t.submit.link ? " · " + esc(t.submit.link) : "") + "</div>" : "";
+    return sub + '<div class="rev"><div class="slots">' + slots + "<span>" + oks + "/" + need + " setuju</span></div>" + (lines ? '<div class="votes">' + lines + "</div>" : '<div class="votes">Belum ada suara dari teman satu kelompok.</div>') + "</div>";
+  }
+  function actsHtml(t) {
+    var m = me(), out = "";
+    if (t.status === "doing" && t.assignee === m.id) out += '<button class="btn solid sm" data-act="submit" data-id="' + t.id + '">Kirim hasil</button><button class="btn sm" data-act="release" data-id="' + t.id + '">Lepas tugas</button>';
+    if (canTake(t)) out += '<button class="btn solid sm" data-act="take" data-id="' + t.id + '">Ambil alih</button>';
+    if (t.status === "review" && t.assignee !== m.id) {
+      var my = t.votes && t.votes[m.id];
+      if (!my) out += '<button class="btn solid sm" data-act="approve" data-id="' + t.id + '">Setujui</button><button class="btn sm" data-act="revise" data-id="' + t.id + '">Minta revisi</button>';
+      else out += '<span class="due">' + (my.v === "ok" ? "Anda sudah menyetujui" : "Anda minta revisi") + "</span>";
+    }
+    if (t.status === "review" && t.assignee === m.id) out += '<span class="due">Menunggu teman Anda menyetujui</span>';
+    if (isLead() && t.status !== "done") {
+      var opts = '<option value="">Buka untuk diambil</option>' + R().members.map(function (x) { return '<option value="' + x.id + '"' + (t.assignee === x.id ? " selected" : "") + ">" + esc(x.name) + "</option>"; }).join("");
+      out += '<label class="assign">Tugaskan <select data-act="assign" data-id="' + t.id + '" aria-label="Tugaskan ' + esc(t.title) + '">' + opts + "</select></label>";
+    }
+    return out;
+  }
+  function renderCards(initial) {
+    var list = R().tasks.filter(function (t) { return state.tab === "all" || t.status === state.tab; });
+    var order = { review: 0, doing: 1, open: 2, done: 3 };
+    list = list.slice().sort(function (a, b) { return order[a.status] - order[b.status] || diff(a.due) - diff(b.due); });
+    var el = $("cards");
+    if (!R().tasks.length) {
+      el.innerHTML = '<div class="empty"><h3>Belum ada tugas</h3><p>' + (isLead() ? "Bagi pekerjaan jadi tugas berpoin supaya progress bisa dihitung." : "Tunggu ketua menambahkan tugas pertama.") + "</p>" + (isLead() ? '<button class="btn solid" data-act="add">Tambah tugas pertama</button>' : "") + (R().members.length === 1 ? '<button class="btn sm" data-act="demo-members">Tambah anggota contoh</button>' : "") + "</div>"; return;
+    }
+    if (!list.length) { el.innerHTML = '<div class="empty"><h3>Tidak ada tugas di sini</h3><p>Coba tab lain.</p></div>'; return; }
+    el.innerHTML = list.map(function (t) {
+      var a = t.assignee ? member(t.assignee) : null;
+      var who = a ? '<span class="who">' + avatar(a, { mini: true }) + "<span>" + esc(a.name) + (a.id === me().id ? " (Anda)" : "") + "</span></span>" : '<span class="who none"><i class="nobody"></i><span>Belum ada yang mengambil</span></span>';
+      var rev = t.status === "review" ? reviewHtml(t) : "";
+      var rn = (t.status === "doing" && t.revNote) ? '<div class="note"><b>Perlu revisi:</b> ' + esc(t.revNote) + "</div>" : "";
+      return '<article class="panel glow card"' + (initial ? " data-s" : "") + '><div class="ctop"><span class="st ' + t.status + '">' + ICON[t.status] + LABEL[t.status] + '</span><span class="pt">' + t.points + " poin</span></div><h3>" + esc(t.title) + "</h3>" + (t.desc ? '<p class="desc">' + esc(t.desc) + "</p>" : "") + '<div class="meta">' + who + dueHtml(t) + "</div>" + rn + rev + '<div class="acts">' + actsHtml(t) + "</div></article>";
+    }).join("");
+  }
+  function renderAside() {
+    var r = R();
+    $("ppl").innerHTML = r.members.map(function (m) {
+      var n = r.tasks.filter(function (t) { return t.assignee === m.id && t.status !== "done"; }).length;
+      return '<div class="prow">' + avatar(m, { mini: true }) + "<div>" + esc(m.name) + (m.id === me().id ? " (Anda)" : "") + "<small>" + n + " tugas aktif</small></div>" + (m.lead ? '<span class="role">Ketua</span>' : "") + "</div>";
+    }).join("");
+    $("feed").innerHTML = r.log.slice(0, 12).map(function (l) { return '<div class="fi"><span><b>' + esc(l.who) + "</b> " + l.text + "</span><time>" + esc(l.ago) + "</time></div>"; }).join("");
+  }
+  function renderRoom(initial) { renderRoomHeader(); renderProgress(!!initial); renderTabs(); renderCards(!!initial); renderAside(); }
+  function refresh() { renderRoomHeader(); renderProgress(false); renderTabs(); renderCards(false); renderAside(); }
+
+  function find(id) { return R().tasks.filter(function (t) { return t.id === Number(id); })[0]; }
+  function finishApproved(t) {
+    t.status = "done"; t.votes = {};
+    var who = member(t.assignee);
+    R().log.unshift({ who: who ? who.name : "Tim", text: "tugas <b>" + esc(t.title) + "</b> disetujui teman satu kelompok (+" + t.points + " poin)", ago: "baru saja" });
+    toast("Disetujui. +" + t.points + " poin untuk " + (who ? who.name : "tim"));
+  }
+  function evaluate(t) {
+    var need = needed(), ids = Object.keys(t.votes || {});
+    var oks = ids.filter(function (k) { return t.votes[k].v === "ok"; }).length, revs = ids.filter(function (k) { return t.votes[k].v === "rev"; });
+    if (oks >= need) { finishApproved(t); return; }
+    if (revs.length >= need) {
+      t.status = "doing"; t.revNote = revs.map(function (k) { return member(k).name + ": " + (t.votes[k].note || ""); }).join(" · ");
+      t.due = addDays(3); t.votes = {};
+      R().log.unshift({ who: "Tim", text: "meminta revisi <b>" + esc(t.title) + "</b>", ago: "baru saja" });
+      toast("Mayoritas minta revisi. Tugas kembali ke pengerjanya.");
+    }
+  }
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest("[data-act], [data-tab]");
+    if (!b || state.view !== "team") return;
+    if (b.dataset.tab) { state.tab = b.dataset.tab; renderTabs(); renderCards(false); return; }
+    var act = b.dataset.act, t = b.dataset.id ? find(b.dataset.id) : null;
+    if (act === "add") return openAdd();
+    if (act === "demo-members") { ["Bima", "Citra", "Dimas"].forEach(function (n) { R().members.push({ id: n.toLowerCase() + uid++, name: n }); }); log("menambahkan anggota contoh"); refresh(); return; }
+    if (!t) return;
+    if (act === "take") { t.assignee = me().id; t.status = "doing"; t.revNote = ""; if (diff(t.due) < 3) t.due = addDays(3); log("mengambil alih <b>" + esc(t.title) + "</b>"); toast("Tugas jadi milik Anda. Tenggat baru: " + fmt(t.due)); refresh(); }
+    else if (act === "release") { t.assignee = null; t.status = "open"; log("melepas <b>" + esc(t.title) + "</b> agar bisa diambil"); toast("Tugas dilepas, anggota lain bisa mengambilnya"); refresh(); }
+    else if (act === "submit") openSubmit(t);
+    else if (act === "approve") { t.votes = t.votes || {}; t.votes[me().id] = { v: "ok" }; log("menyetujui <b>" + esc(t.title) + "</b>"); evaluate(t); refresh(); }
+    else if (act === "revise") openRevise(t);
+  });
+  document.addEventListener("change", function (e) {
+    var s = e.target.closest('select[data-act="assign"]');
+    if (!s) return;
+    var t = find(s.dataset.id);
+    if (!s.value) { t.assignee = null; t.status = "open"; log("membuka <b>" + esc(t.title) + "</b> untuk diambil"); }
+    else { t.assignee = s.value; t.status = "doing"; t.votes = {}; log("menugaskan <b>" + esc(t.title) + "</b> ke " + esc(member(s.value).name)); }
+    refresh();
+  });
+  $("meSel").addEventListener("change", function (e) { state.me = e.target.value; refresh(); });
+  $("addTask").addEventListener("click", openAdd);
+  $("rmCode").addEventListener("click", function () {
+    var c = R().code;
+    try { navigator.clipboard.writeText(c).then(function () { toast("Kode " + c + " disalin"); }, function () { toast("Kode ruangan: " + c); }); } catch (x) { toast("Kode ruangan: " + c); }
+  });
+  function openAdd() {
+    var opts = '<option value="">Biarkan terbuka untuk diambil</option>' + R().members.map(function (m) { return '<option value="' + m.id + '">' + esc(m.name) + "</option>"; }).join("");
+    openModal('<h2>Tambah tugas</h2><p class="sub">Total poin sekarang ' + sum(R().tasks) + '. Progress dihitung dari poin yang sudah disetujui.</p><label class="fld">Nama tugas<input id="tt" maxlength="60" placeholder="Contoh: Buat poster publikasi"></label><label class="fld">Keterangan (opsional)<textarea id="td" maxlength="200"></textarea></label><div class="two"><label class="fld">Poin<input id="tp" type="number" min="1" max="100" value="10"></label><label class="fld">Tenggat<input id="tu" type="date" value="' + addDays(7) + '"></label></div><label class="fld">Ditugaskan ke<select id="ta">' + opts + '</select></label><div class="err" id="terr"></div><div class="mact"><button class="btn" data-close type="button">Batal</button><button class="btn solid" id="tok" type="button">Tambahkan</button></div>', function (m) {
+      m.querySelector("#tok").addEventListener("click", function () {
+        var title = m.querySelector("#tt").value.trim(), pts = parseInt(m.querySelector("#tp").value, 10), due = m.querySelector("#tu").value, as = m.querySelector("#ta").value;
+        if (!title) { m.querySelector("#terr").textContent = "Isi nama tugas dulu."; return; }
+        if (!pts || pts < 1) { m.querySelector("#terr").textContent = "Poin minimal 1."; return; }
+        R().tasks.push({ id: uid++, title: title, desc: m.querySelector("#td").value.trim(), points: pts, due: due || addDays(7), assignee: as || null, status: as ? "doing" : "open", votes: {} });
+        log("menambahkan tugas <b>" + esc(title) + "</b> (" + pts + " poin)");
+        closeModal(); refresh(); toast("Tugas ditambahkan");
+      });
+    });
+  }
+  function openSubmit(t) {
+    openModal('<h2>Kirim hasil</h2><p class="sub">' + esc(t.title) + '. Teman satu kelompok akan memeriksa sebelum poin dihitung.</p><label class="fld">Catatan untuk teman<textarea id="sn" maxlength="240" placeholder="Apa yang sudah dikerjakan?"></textarea></label><label class="fld">Tautan hasil (opsional)<input id="sl" maxlength="120" placeholder="Tautan dokumen atau folder"></label><div class="mact"><button class="btn" data-close type="button">Batal</button><button class="btn solid" id="sok" type="button">Kirim untuk disetujui</button></div>', function (m) {
+      m.querySelector("#sok").addEventListener("click", function () {
+        t.status = "review"; t.votes = {}; t.revNote = ""; t.submit = { note: m.querySelector("#sn").value.trim(), link: m.querySelector("#sl").value.trim() };
+        log("mengirim hasil <b>" + esc(t.title) + "</b>"); closeModal();
+        if (R().members.length === 1) finishApproved(t); else toast("Terkirim. Menunggu " + needed() + " persetujuan teman");
+        refresh();
+      });
+    });
+  }
+  function openRevise(t) {
+    openModal('<h2>Minta revisi</h2><p class="sub">' + esc(t.title) + '. Tulis bagian yang perlu diperbaiki.</p><label class="fld">Catatan revisi<textarea id="rv"></textarea></label><div class="err" id="rverr"></div><div class="mact"><button class="btn" data-close type="button">Batal</button><button class="btn solid" id="rvok" type="button">Kirim catatan</button></div>', function (m) {
+      m.querySelector("#rvok").addEventListener("click", function () {
+        var n = m.querySelector("#rv").value.trim();
+        if (!n) { m.querySelector("#rverr").textContent = "Tulis dulu bagian yang perlu diperbaiki."; return; }
+        t.votes = t.votes || {}; t.votes[me().id] = { v: "rev", note: n };
+        log("meminta revisi <b>" + esc(t.title) + "</b>"); closeModal(); evaluate(t); refresh();
+      });
+    });
+  }
+
+  /* ---------- Sorotan kartu & tooltip avatar ---------- */
+  document.addEventListener("pointermove", function (e) {
+    var g = e.target.closest && e.target.closest(".glow");
+    if (g) { var r = g.getBoundingClientRect(); g.style.setProperty("--mx", (e.clientX - r.left) + "px"); g.style.setProperty("--my", (e.clientY - r.top) + "px"); }
+    var a = e.target.closest && e.target.closest(".avs .av");
+    if (a) { var q = a.getBoundingClientRect(), x = e.clientX - (q.left + q.width / 2); a.style.setProperty("--tx", (x * 0.5).toFixed(1) + "px"); a.style.setProperty("--rx", (x * 0.35).toFixed(1) + "deg"); }
+  });
+  window.addEventListener("resize", placePill);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(placePill);
+
+  /* ---------- Mulai: bisa dibuka langsung lewat #landing, #auth, #dashboard, #team ---------- */
+  var h = (location.hash || "").replace("#", "");
+  var first = views[h] ? h : "landing";
+  if (first !== "landing") views.landing.hidden = true;
+  state.view = first;
+  views[first].hidden = false;
+  window.setBackgroundState(first); syncDock(first);
+  enterHooks(first); stagger(views[first]);
+  views[first].classList.add("in");
+  if (first === "team") requestAnimationFrame(placePill);
+})();
+</script>
+
+</body></html>

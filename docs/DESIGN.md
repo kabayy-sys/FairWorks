@@ -60,6 +60,8 @@ Interaksi: pointer mendekat → garis menghindar radius 20% viewport, kembali pe
 
 ## 3. Pemetaan Komponen Galeri (maks 8, sisanya mati)
 
+Sumber eksplorasi: `docs/library/Galeri-Komponen.html` (buka di browser). Prototipe visual acuan: `docs/library/Ruang-Tim-Fondasi-V2.html`.
+
 | # | Komponen | Dipakai di | Catatan |
 |---|---|---|---|
 | 1 | Line Background | Semua view (4 mood) | Signature moment |
