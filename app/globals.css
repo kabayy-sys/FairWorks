@@ -58,6 +58,70 @@ body {
   color: var(--c0);
 }
 
+/* Keyframes & Utility Animasi Native (DESIGN.md §1.4 easing: cubic-bezier(.22, .8, .2, 1)) */
+@keyframes fwFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fwZoomIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+    filter: blur(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+    filter: blur(0px);
+  }
+}
+
+@keyframes fwSlideFromRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes fwSlideFromBottom {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation-timing-function: var(--ease);
+  animation-fill-mode: both;
+}
+
+.fade-in {
+  animation-name: fwFadeIn;
+}
+
+.zoom-in-95 {
+  animation-name: fwZoomIn;
+}
+
+.slide-in-from-right {
+  animation-name: fwSlideFromRight;
+}
+
+.slide-in-from-bottom-4 {
+  animation-name: fwSlideFromBottom;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
