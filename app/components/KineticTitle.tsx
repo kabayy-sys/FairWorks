@@ -29,7 +29,7 @@ export function KineticTitle({ text, className = '', tag = 'h1' }: KineticTitleP
             style={{
               transform: mounted ? 'translateY(0) scale(1)' : 'translateY(110%) scale(0.98)',
               filter: mounted ? 'blur(0px)' : 'blur(8px)',
-              transitionDelay: `${wIdx * 65}Y` in {} ? `${wIdx * 65}ms` : `${wIdx * 65}ms`,
+              transitionDelay: `${wIdx * 65}ms`,
             }}
           >
             {word}
