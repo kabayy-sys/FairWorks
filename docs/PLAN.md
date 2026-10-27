@@ -36,13 +36,14 @@ Paralel wajar: T3 + T4 + T5 berjalan bersamaan setelah T1/T2 cukup matang.
 - [x] Klien Supabase browser + server
 - [x] `docs/` PRD + PLAN + DESIGN, README, aturan kerja
 
-### T1 — Kerangka UI (Chello, jalur kritis)
+### T1 — Kerangka UI (Chello, jalur kritis) ✅ SELESAI (PR #5)
 Keluaran: kerangka 5 view jalan + design system v1 rilis di repo.
-- [ ] Shell 5 view + transisi masuk/keluar + thumb bar
-- [ ] Line Background Engine integrasi + 4 mood + `setBackgroundState(view)`
-- [ ] Komponen dasar: `Btn`, `Panel`, `Track` (4 segmen), `AvatarStack`+tooltip, `Modal`, `Toast`, `Odometer`, `TabsPill`, `Field`
-- [ ] Kinetic Title
-- [ ] Halaman Story statis = contoh pemakaian semua komponen (referensi Iwan & Riski)
+- [x] Shell 5 view + transisi masuk/keluar + thumb bar *(transisi versi ringan — versi penuh §1.4 masuk tiket T6)*
+- [x] Line Background Engine integrasi + 4 mood + `setBackgroundState(view)` *(mood room/laporan masih digabung — tiket T6)*
+- [x] Komponen dasar: `Btn`, `Panel`, `Track` (4 segmen), `AvatarStack`+tooltip, `Modal`, `Toast`, `Odometer`, `TabsPill`, `Field` *(Odometer masih statis — tiket T6)*
+- [x] Kinetic Title
+- [x] Halaman Story statis = contoh pemakaian semua komponen (referensi Iwan & Riski)
+- [x] Bonus: keyframes animasi native + override `prefers-reduced-motion` (hasil audit PR #5)
 
 ### T2 — Kontrak Backend (Raken)
 Keluaran: API hidup + tipe TypeScript — prasyarat T3 & T4 beneran nyambung.
