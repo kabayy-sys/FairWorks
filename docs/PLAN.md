@@ -1,107 +1,139 @@
-# FairWorks — Execution Plan
+# FairWorks — Execution Plan (Tahapan Task)
 
-Pendamping PRD v1 (27 Okt 2026) · STACK 2026 GDGoC ITB
+Pendamping PRD v1 · STACK 2026 GDGoC ITB
 Tim: Raken (Backend) · Chello, Iwan, Riski (Frontend)
-Deadline keras: **10 Nov** abstrak/proposal · **30 Nov** semifinal MVP · **7 Des** final Bandung
+Deadline keras (gerbang, bukan penentu urutan): **10 Nov** abstrak · **22 Nov** freeze · **30 Nov** semifinal · **7 Des** final
 
 ---
 
 ## 1. Prinsip Kerja (ikuti ketat)
 
-1. **1 PR = 1 tugas kecil.** Gak ada PR raksasa. Review dulu, baru merge.
-2. **Merge hanya dengan OK Raken.** Semua kerja lewat PR, gak ada commit langsung ke main.
-3. **Definition of Done per tugas:** jalan di HP + desktop, lolos RLS (nyoba akses ruangan orang lain = ditolak), nol error console, pakai komponen design system Chello, bukan CSS tempelan.
-4. **Sinkron harian async:** tiap sore satu pesan di grup tim — apa selesai, apa blokir. Tanpa rapat panjang.
-5. **Frontend kerja pakai mock sampai API hidup.** Gak ada yang nganggur nungguin backend.
+1. **1 PR = 1 tugas kecil.** Tidak ada commit langsung ke `main`. Merge hanya dengan OK Raken.
+2. **Kerja per tahap.** Tahap berikutnya dibuka begitu keluaran tahap sebelumnya siap — bukan begitu tanggal berganti.
+3. **Tahap paralel diperbolehkan** kalau keluaran prasyaratnya sudah ada (lihat peta di bawah).
+4. **Frontend kerja pakai mock sampai API hidup.** Gak ada yang nganggur.
+5. **Definition of Done per tugas:** jalan di HP + desktop, lolos RLS, nol error console, pakai design system, bukan CSS tempelan.
+6. **Sinkron harian async:** tiap sore satu pesan di grup — apa selesai, apa blokir.
 
-## 2. Peta Ketergantungan (siapa ngeblok siapa)
+## 2. Peta Alur Tahap
 
 ```
-Raken: tipe TS + kontrak RPC (hari ke-2) ──▶ Iwan & Riski sambung API asli
-Chello: design system (hari ke-4, JALUR KRITIS) ──▶ semua UI final
-Riski: board + ambil/kirim ──▶ vote UI ──▶ E2E pertama ──▶ dossier butuh data done
+T0 Fondasi ✅
+ └─▶ T1 Kerangka UI (Chello) ──▶ semua UI bisa dibangun
+ └─▶ T2 Kontrak Backend (Raken) ──▶ API hidup
+        T1 + T2 ──▶ T3 Flow Kontrak (Iwan)  ┐
+                    T4 Siklus Tugas (Riski) ├──▶ T6 Nyala E2E ──▶ T7 Uji Nyata ──▶ T8 QA & Demo ──▶ T9 Final
+        T1 saja ──▶ T5 Halaman Publik (Chello+Iwan) ┘
 ```
 
-Kalau jalur kritis Chello molor: semua lanjut pakai style sementara, DS tinggal dilepas di atasnya.
+Paralel wajar: T3 + T4 + T5 berjalan bersamaan setelah T1/T2 cukup matang.
 
-## 3. Fase 0 — Fondasi (Jumat 27 Okt – Senin 2 Nov)
+## 3. Daftar Tahap
 
-| Hari | Raken | Chello | Iwan | Riski |
-|---|---|---|---|---|
-| Jum 27 | Setup repo Next.js+Tailwind+Supabase, env, konvensi branch. Schema SQL + RLS draft | Token 5 warna + font Geist + btn/panel | Shell 5 view + transisi antar view (mock) | Mock data + skeleton papan tugas |
-| Sab 28 | **Rilis tipe TS + definisi RPC** (janji hari ke-2). Auth magic link | Komponen dasar: track, avatar, modal, toast, odometer | Form buat/edit tugas (1 field nama + poin default 10) | Kartu tugas + tabs pill |
-| Min 29 — *libur ringan, opsional* | | | | |
-| Sen 30... |
+### T0 — Fondasi ✅ (SELESAI, PR #1 merged)
+- [x] Repo Next.js 16 + Tailwind v4 + TypeScript
+- [x] Token 5 warna + easing di `app/globals.css`
+- [x] Klien Supabase browser + server
+- [x] `docs/` PRD + PLAN + DESIGN, README, aturan kerja
 
-**Koreksi kalender — mulai dari sini pakai tanggal bener:**
+### T1 — Kerangka UI (Chello, jalur kritis)
+Keluaran: kerangka 5 view jalan + design system v1 rilis di repo.
+- [ ] Shell 5 view + transisi masuk/keluar + thumb bar
+- [ ] Line Background Engine integrasi + 4 mood + `setBackgroundState(view)`
+- [ ] Komponen dasar: `Btn`, `Panel`, `Track` (4 segmen), `AvatarStack`+tooltip, `Modal`, `Toast`, `Odometer`, `TabsPill`, `Field`
+- [ ] Kinetic Title
+- [ ] Halaman Story statis = contoh pemakaian semua komponen (referensi Iwan & Riski)
 
-| Tanggal | Raken | Chello | Iwan | Riski |
-|---|---|---|---|---|
-| Sel 28 | Tipe TS + RPC `submit_contract` | Odometer + line background engine integrasi | Form tugas | Kartu + tabs |
-| Rab 29 | RPC `vote_contract` + `auto_lock` | Halaman Landing (hero kinetic) | Rekap + kirim kontrak + modal Setuju/Minta ubah (mock) | Ambil tugas + lepas (mock) |
-| Kam 30 | Trigger email dasar | **DS final rilis** → mulai pie chart dossier | Sambung kontrak ke RPC asli | Kirim bukti + chip deteksi link |
-| Jum 31 | Realtime channel per ruangan | Timeline dossier | Join ruangan via kode | Board sambung DB asli |
-| Sab 1 – Min 2 Nov | Seeding 3 ruangan demo | Landing + Auth final | Dashboard (stats + kartu ruangan) | Feed skeleton + baca activity_log |
-| **Sen 2 Nov — Checkpoint Fase 0** | Demo internal: magic link jalan, kontrak terkunci end-to-end, board baca data asli. Raken review semua PR tertunda | | | |
+### T2 — Kontrak Backend (Raken)
+Keluaran: API hidup + tipe TypeScript — prasyarat T3 & T4 beneran nyambung.
+- [ ] Schema SQL 7 tabel + indeks + RLS lengkap
+- [ ] Auth magic link + template email
+- [ ] Tipe TypeScript + definisi RPC: `submit_contract`, `vote_contract`, `auto_lock`, `take_task`, `submit_proof`, `cast_vote`, `get_report(token)`
+- [ ] RPC jalan + teruji (mayoritas, reset vote, ambil alih — semua di sisi DB)
+- [ ] Supabase Realtime channel per ruangan
+- [ ] Seeding 3 ruangan demo
 
-## 4. Fase 1 — Inti Menyala (Selasa 3 – Minggu 9 Nov)
+### T3 — Flow Kontrak (Iwan) — butuh T1, nyambung saat T2 siap
+Keluaran: kontrak bisa dibuat, dikirim, disetujui, terkunci.
+- [ ] Form buat/edit tugas (judul, deskripsi opsional, poin default 10, tenggat default +7 hari)
+- [ ] Rekap kontrak + tombol **Kirim kontrak**
+- [ ] Modal Setuju / Minta ubah (catatan wajib)
+- [ ] Banner countdown 24 jam + status lock + kontrak terkunci
+- [ ] Tambah tugas pasca-lock (vote mayoritas untuk tugas baru)
+- [ ] Join ruangan via kode/tautan
 
-| Tanggal | Fokus |
+### T4 — Siklus Tugas (Riski) — butuh T1, nyambung saat T2 siap
+Keluaran: satu siklus penuh tugas selesai end-to-end.
+- [ ] Papan tugas: tabs pill, kartu status, badge overdue ("lewat 2 hari")
+- [ ] Ambil tugas (1 ketukan) + lepas + ambil alih (modal konfirmasi)
+- [ ] Kirim bukti: field link wajib + chip deteksi otomatis + kirim ulang
+- [ ] UI persetujuan: Setuju/Revisi, daftar suara transparan, catatan revisi
+- [ ] Progres besar + bar anggota + feed realtime (langganan Supabase)
+- [ ] Edge case UI: kirim ulang, suara hangus, anggota keluar, tanpa tenggat
+
+### T5 — Halaman Publik (Chello + Iwan) — butuh T1; dossier nyambung saat ada data done
+Keluaran: pintu masuk, masuk, dan laporan dosen jadi.
+- [ ] Landing final (hero kinetic + preview + 3 fitur) — Chello
+- [ ] Auth final (magic link satu field, state sukses kartu berganti isi) — Chello
+- [ ] Dashboard final (sapaan, 3 statistik odometer, kartu ruangan, join kode) — Iwan
+- [ ] Dossier publik `/l/{token}`: kepala + pie monokrom + timeline + tabel bukti — Chello
+
+### T6 — Nyala End-to-End (semua)
+Keluaran: E2E pertama mulus + edge case tertutup.
+- [ ] E2E: bikin ruangan → kontrak → ambil → kirim → 2 setuju → done (Rab pertama setelah T4 jadi)
+- [ ] Edge case PRD 4.8 satu per satu
+- [ ] Audit RLS + hardening RPC (Raken)
+- [ ] Notifikasi: in-app bell + toast (Iwan) + email 5 trigger Edge Function (Raken)
+- [ ] Fallback polling realtime
+
+### T7 — Uji Nyata
+Keluaran: orang luar tim selesai tanpa bantuan.
+- [ ] Uji kelompok nyata #1 (5 orang) — catat friction per aksi
+- [ ] Perbaikan friction ronde 1
+- [ ] Uji kelompok nyata #2 + Lighthouse mobile ≥ 85 + aksi optimis < 100 ms
+- [ ] Aksesibilitas + `prefers-reduced-motion` final
+
+### T8 — QA & Demo
+Keluaran: produksi hidup, rehearsal mulus.
+- [ ] QA silang: tiap orang QA area orang lain, checklist edge case dicentang
+- [ ] Mobile pass: aksi inti satu tangan, target sentuh ≥ 44 px
+- [ ] Data demo 3 ruangan cerita lengkap + naskah demo 5 menit
+- [ ] General rehearsal #1 → bugfix → rehearsal #2
+- [ ] Deploy produksi (Vercel) + **freeze kode**
+
+### T9 — Final
+Keluaran: siap Bandung.
+- [ ] Feedback juri semifinal → backlog polish
+- [ ] Polish visual + micro-interaction
+- [ ] Deploy final + rehearsal terakhir
+
+## 4. Gerbang Deadline (dicek, bukan penentu urutan)
+
+| Gerbang | Harus sudah lewat |
 |---|---|
-| Sel 3 | Riski: UI persetujuan (Setuju/Revisi + daftar suara) sambung RPC. Iwan: bell + toast (mock). Chello: tabel bukti dossier |
-| Rab 4 | Raken: Edge Function email (5 trigger dari tabel notif PRD). Riski: feed realtime live. Iwan: countdown 24 jam + tugas pasca-lock |
-| **Rab 5 — E2E pertama** | Bikin ruangan → kontrak → ambil → kirim → 2 setuju → done. Bug list dibuka |
-| Kam 6 | Bugfix E2E. Iwan: dashboard final. Chello: polish transisi + background morph per view |
-| Jum 7 | Ambil alih + overdue badge + edge case PRD 4.8 (kirim ulang, suara hangus). Raken: audit RLS + hardening RPC |
-| Sab 8 | Dossier publik lengkap: token + halaman `/l/{token}` + RPC `get_report` |
-| Min 9 — Checkpoint Fase 1 | Demo penuh: 2 laptop + 1 HP. Draft abstrak & proposal |
-| **Sen 10 Nov** | **Kirim abstrak & proposal.** Semua review sebelum submit |
+| 2 Nov | T0–T1 selesai, T2 minimal schema + auth, T3/T4 mock jalan |
+| 9 Nov | T6 selesai — E2E mulus, siap draft abstrak |
+| **10 Nov** | **Kirim abstrak & proposal** |
+| 16 Nov | T7 uji kelompok #1 tuntas |
+| 22 Nov | T7 selesai + **feature freeze** |
+| 29 Nov | T8 selesai — produksi hidup, rehearsal 2x mulus |
+| **30 Nov** | **Semifinal** |
+| 6 Des | T9 selesai — berangkat Bandung |
+| **7 Des** | **FINAL** |
 
-## 5. Fase 2 — Uji Nyata & Perkuat (11 – 22 Nov)
+## 5. Rencana Cadangan
 
-| Tanggal | Fokus |
+| Gejala | Aksi |
 |---|---|
-| Sel–Kam 11–13 | Uji kelompok nyata #1 (5 orang di luar tim main sungguhan). Catat friction per aksi. Uji email ke Gmail/Outlook/Yahoo |
-| Jum–Min 14–16 | Perbaikan friction ronde 1. Fallback polling realtime (kalau koneksi kampus jeblok) |
-| Sen–Rab 17–19 | Uji kelompok nyata #2. Perf: Lighthouse mobile ≥ 85, aksi optimis < 100 ms |
-| Kam–Sab 20–22 | Perbaikan ronde 2. Aksesibilitas + `prefers-reduced-motion`. **22 Nov: feature freeze** — apa pun belum selesai = mati, gak dibawa ke QA |
+| T1 (DS) molor | UI lanjut style sementara; DS dilepas sebagai skin |
+| T2 API molor | Frontend tetap mock; Raken utamakan `submit_contract` + `cast_vote` dulu |
+| Realtime goyah | Fallback polling 10 detik wajib terpasang sejak T6 |
+| Email masuk spam | In-app cukup untuk demo |
+| Dossier molor | Pie + tabel dulu, timeline menyusul |
+| Molor apa pun | Potong polish — JANGAN potong E2E inti, dossier, satu rehearsal penuh |
 
-## 6. Fase 3 — QA & Demo (Minggu 23 – Sabtu 29 Nov)
+## 6. Metrik Checkpoint
 
-| Tanggal | Fokus |
-|---|---|
-| Min–Sen 23–24 | QA silang: tiap orang QA area orang lain. Checklist edge case PRD 4.8 satu per satu, centang manual |
-| Sel 25 | Mobile pass: semua aksi inti selesai satu tangan. Target sentuh ≥ 44 px |
-| Rab 26 | Data demo: 3 ruangan cerita lengkap (satu hampir selesai biar pie-nya bagus). Naskah demo 5 menit + pembagian peran demo |
-| Kam 27 | General rehearsal #1: demo penuh. Semua bug dicatat |
-| Jum 28 | Buffer / bugfix |
-| Sab 29 | General rehearsal #2. **Deploy produksi (Vercel). Freeze kode** |
-| **Min 30 Nov** | **SEMIFINAL — MVP tayang** |
-
-## 7. Fase 4 — Final (1 – 7 Des)
-
-| Tanggal | Fokus |
-|---|---|
-| Sen–Sel 1–2 | Catat feedback juri semifinal → backlog polish |
-| Rab–Kam 3–4 | Polish visual + micro-interaction + fix |
-| Jum 5 | Deploy final + rehearsal |
-| Sab 6 | Rehearsal terakhir + berangkat Bandung |
-| **Min 7 Des** | **FINAL** |
-
-## 8. Rencana Cadangan (kalau ada yang molor)
-
-| Gejala (dicek tanggal) | Aksi |
-|---|---|
-| DS Chello belum final tgl 30 Okt | UI lanjut style sementara; DS dilepas sebagai skin di atas |
-| API Raken belum siap tgl 4 Nov | Frontend tetap mock sampai 6 Nov; Raken utamakan `submit_contract` + `cast_vote` dulu, sisanya menyusul |
-| Realtime goyah tgl 19 Nov | Fallback polling 10 detik sudah wajib terpasang sejak Fase 2 |
-| Email masuk spam | In-app cukup untuk demo; email diperbaiki pasca-semifinal |
-| Dossier timeline molor tgl 20 Nov | Pie + tabel dulu — tapi target tetap full sesuai PRD, ini hanya pagar darurat |
-| Molor apa pun menjelang 29 Nov | Potong polish, JANGAN potong: E2E inti, dossier, satu rehearsal penuh |
-
-## 9. Metrik Checkpoint (lolos = lanjut fase)
-
-- **2 Nov:** magic link end-to-end, kontrak terkunci, board baca data asli.
-- **9 Nov:** siklus penuh 2 orang < 3 menit di HP.
-- **22 Nov:** 2 kelompok nyata selesai tanpa bantuan tim; Lighthouse ≥ 85.
-- **29 Nov:** nol bug kritis, rehearsal 2x mulus, produksi hidup.
+- Setelah T6: siklus penuh 2 orang < 3 menit di HP.
+- Setelah T7: 2 kelompok nyata selesai tanpa bantuan; Lighthouse ≥ 85.
+- Setelah T8: nol bug kritis, rehearsal 2x mulus, produksi hidup.
