@@ -159,8 +159,53 @@ export function Toast({ message, onClose }: { message: string; onClose?: () => v
   );
 }
 
-export function Odometer({ value }: { value: number | string }) {
-  return <span className="tabular-nums font-semibold tracking-tight">{value}</span>;
+export function Odometer({
+  value,
+  duration = 1000,
+  suffix = '',
+}: {
+  value: number | string;
+  duration?: number;
+  suffix?: string;
+}) {
+  const [displayValue, setDisplayValue] = React.useState<number | string>(value);
+
+  React.useEffect(() => {
+    const num = typeof value === 'number' ? value : parseFloat(String(value).replace(/[^0-9.-]/g, ''));
+    if (isNaN(num)) {
+      return;
+    }
+
+    const prefersReducedMotion =
+      typeof window !== 'undefined' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    if (prefersReducedMotion) {
+      return;
+    }
+
+    let startTimestamp: number | null = null;
+    let animId: number;
+
+    const step = (timestamp: number) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const current = Math.round(num * ease);
+      setDisplayValue(`${current}${suffix || (typeof value === 'string' && value.includes('%') ? '%' : '')}`);
+
+      if (progress < 1) {
+        animId = requestAnimationFrame(step);
+      } else {
+        setDisplayValue(typeof value === 'number' ? `${num}${suffix}` : value);
+      }
+    };
+
+    animId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(animId);
+  }, [value, duration, suffix]);
+
+  return <span className="tabular-nums font-semibold tracking-tight">{displayValue}</span>;
 }
 
 interface TabsPillProps {

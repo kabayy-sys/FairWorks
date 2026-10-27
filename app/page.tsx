@@ -19,6 +19,7 @@ import { ThumbBar } from './components/ThumbBar';
 import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
 import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
 import { JoinRoomModal } from './components/JoinRoomModal';
+import { DashboardView, DashboardRoomItem } from './components/DashboardView';
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<BackgroundMood | 'story'>('landing');
@@ -31,7 +32,35 @@ export default function Home() {
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [roomSubTab, setRoomSubTab] = useState<'papan' | 'kontrak'>('papan');
 
-  // State Flow Kontrak Demo / Nyata
+  // State Dashboard Ruangan
+  const [dashboardRooms, setDashboardRooms] = useState<DashboardRoomItem[]>([
+    {
+      id: 'mock-room-1',
+      nama: 'Riset Pasar Digital',
+      kode: 'RPD-4K7',
+      role: 'ketua',
+      membersCount: 5,
+      totalPoints: 40,
+      donePoints: 16,
+      reviewPoints: 12,
+      doingPoints: 8,
+      openPoints: 4,
+      status: 'locked',
+    },
+    {
+      id: 'mock-room-2',
+      nama: 'Proyek Akhir Basis Data',
+      kode: 'PBD-9M2',
+      role: 'anggota',
+      membersCount: 4,
+      totalPoints: 50,
+      donePoints: 10,
+      reviewPoints: 0,
+      doingPoints: 15,
+      openPoints: 25,
+      status: 'draft',
+    },
+  ]);
   const [contractLocked, setContractLocked] = useState(true);
   const [contractDeadline, setContractDeadline] = useState<string | null>(null);
   const [contractMembers, setContractMembers] = useState<ContractMember[]>([
@@ -175,57 +204,40 @@ export default function Home() {
             VIEW 3: DASHBOARD — 2 Zona: Baris Mono + Daftar Kolom (DESIGN.md v2 §5.3)
            ============================================================== */}
         {currentView === 'dashboard' && (
-          <div className="space-y-6 animate-in fade-in duration-700 max-w-2xl mx-auto">
-            {/* Zona 1: Sapaan + Statistik satu baris mono */}
-            <div className="space-y-1.5 border-b border-[var(--c1)] pb-5">
-              <span className="eyebrow text-xs">Kamis, 29 Oktober</span>
-              <h2 className="text-2xl font-semibold">
-                Halo, Ayu. <span className="font-mono text-sm text-[var(--c3)] font-normal ml-2">2 ruangan · 3 tugas · 45 poin</span>
-              </h2>
-            </div>
+          <DashboardView
+            userName="Ayu"
+            rooms={dashboardRooms}
+            myTaskCount={3}
+            myTotalPoints={45}
+            onSelectRoom={(room) => {
+              setCurrentView('room');
+              setToastMessage(`Membuka ruangan ${room.nama}`);
+            }}
+            onCreateRoom={(nama) => {
+              const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+              let code = '';
+              for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
+              code += '-';
+              for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
 
-            {/* Zona 2: Daftar baris ruangan satu kolom */}
-            <div className="space-y-2.5">
-              <Panel
-                className="cursor-pointer hover:border-[var(--c4)] transition-all p-4.5 space-y-3"
-                onClick={() => setCurrentView('room')}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="text-base font-medium">Riset Pasar Digital</span>
-                  <span className="font-mono text-xs text-[var(--c3)]">RPD-4K7</span>
-                </div>
-                <Track done={40} review={30} doing={20} open={10} />
-                <div className="flex justify-between text-xs text-[var(--c3)] font-mono">
-                  <span>40% selesai</span>
-                  <span>5 anggota</span>
-                </div>
-              </Panel>
-
-              <Panel
-                className="cursor-pointer hover:border-[var(--c4)] transition-all p-4.5 space-y-3"
-                onClick={() => setCurrentView('room')}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="text-base font-medium">Proyek Akhir Basis Data</span>
-                  <span className="font-mono text-xs text-[var(--c3)]">PBD-9M2</span>
-                </div>
-                <Track done={20} doing={30} open={50} />
-                <div className="flex justify-between text-xs text-[var(--c3)] font-mono">
-                  <span>20% selesai</span>
-                  <span>4 anggota</span>
-                </div>
-              </Panel>
-
-              {/* Baris dashed masuk kode */}
-              <div
-                onClick={() => setJoinModalOpen(true)}
-                className="p-4 rounded-[18px] border border-dashed border-[var(--c2)] hover:bg-[var(--c1)]/40 flex items-center justify-between text-xs text-[var(--c3)] cursor-pointer transition-all"
-              >
-                <span>+ Masuk kode ruangan…</span>
-                <span className="font-mono text-[var(--c4)]">Gabung</span>
-              </div>
-            </div>
-          </div>
+              const newRoom: DashboardRoomItem = {
+                id: `room-${Date.now()}`,
+                nama,
+                kode: code,
+                role: 'ketua',
+                membersCount: 1,
+                totalPoints: 0,
+                donePoints: 0,
+                reviewPoints: 0,
+                doingPoints: 0,
+                openPoints: 0,
+                status: 'draft',
+              };
+              setDashboardRooms((prev) => [newRoom, ...prev]);
+              setToastMessage(`Ruangan "${nama}" berhasil dibuat dengan kode ${code}!`);
+            }}
+            onOpenJoinModal={() => setJoinModalOpen(true)}
+          />
         )}
 
         {/* ==============================================================
@@ -534,7 +546,34 @@ export default function Home() {
           onPrimaryClick={() => {
             if (currentView === 'landing') setCurrentView('auth');
             else if (currentView === 'auth') setAuthSent(true);
-            else if (currentView === 'dashboard') setToastMessage('Buka form buat ruangan');
+            else if (currentView === 'dashboard') {
+              const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+              let code = '';
+              for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
+              code += '-';
+              for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
+
+              const defaultName = `Ruangan Proyek ${dashboardRooms.length + 1}`;
+              const newRoom: DashboardRoomItem = {
+                id: `room-${Date.now()}`,
+                nama: defaultName,
+                kode: code,
+                role: 'ketua',
+                membersCount: 1,
+                totalPoints: 0,
+                donePoints: 0,
+                reviewPoints: 0,
+                doingPoints: 0,
+                openPoints: 0,
+                status: 'draft',
+              };
+              setDashboardRooms((prev) => [newRoom, ...prev]);
+              setToastMessage(`Ruangan baru dibuat (${code})!`);
+            }
+          }}
+          secondaryText={currentView === 'dashboard' ? 'Masuk kode' : undefined}
+          onSecondaryClick={() => {
+            if (currentView === 'dashboard') setJoinModalOpen(true);
           }}
         />
       )}

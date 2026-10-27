@@ -170,3 +170,33 @@ export async function deleteTask(taskId: string) {
   if (error) throw error;
   return true;
 }
+
+export async function getUserDashboardData() {
+  const supabase = createClient();
+  const { data: authData } = await supabase.auth.getUser();
+  const user = authData?.user;
+
+  if (!user) {
+    return null;
+  }
+
+  // Ambil profil
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("id, email, nama")
+    .eq("id", user.id)
+    .single();
+
+  // Ambil ruangan yang diikuti user
+  const { data: memberRooms, error: roomErr } = await supabase
+    .from("room_members")
+    .select("room_id, peran, rooms(id, nama, kode, locked_at, contract_deadline)")
+    .eq("user_id", user.id);
+
+  if (roomErr) throw roomErr;
+
+  return {
+    user: profile || { id: user.id, email: user.email, nama: user.email?.split("@")[0] || "User" },
+    rooms: memberRooms || [],
+  };
+}
