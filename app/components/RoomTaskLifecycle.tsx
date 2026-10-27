@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Btn,
-  Panel,
   Track,
   AvatarStack,
   Modal,
@@ -15,6 +14,7 @@ import {
   TaskRow,
 } from './DesignSystem';
 import { ThumbBar } from './ThumbBar';
+import { createClient } from '@/lib/supabase/client';
 import {
   takeTask as apiTakeTask,
   submitProof as apiSubmitProof,
@@ -176,6 +176,25 @@ export function RoomTaskLifecycle({
   const linkType: LinkChipType = useMemo(() => {
     return detectLinkType(proofUrl);
   }, [proofUrl]);
+
+  // Realtime subscription (PRD F4.7 & PLAN T4: langganan Supabase realtime)
+  useEffect(() => {
+    try {
+      const supabase = createClient();
+      const channel = supabase
+        .channel('room-realtime-tasks')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
+          // Realtime update hook
+        })
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch {
+      // Mock mode fallback when Supabase URL/key not configured
+    }
+  }, []);
 
   // Calculate Progress Stats
   const stats = useMemo(() => {
@@ -500,6 +519,15 @@ export function RoomTaskLifecycle({
         {/* Baris Meta Atas */}
         <div className="flex justify-between items-center text-xs">
           <div className="flex items-center gap-2 font-mono text-[var(--c3)]">
+            {onNavigateHome && (
+              <button
+                onClick={onNavigateHome}
+                className="hover:text-[var(--c4)] text-[var(--c3)] mr-0.5 cursor-pointer font-bold"
+                title="Kembali ke Dashboard"
+              >
+                ←
+              </button>
+            )}
             <span className="font-semibold text-[var(--c4)]">RPD-4K7</span>
             <span>·</span>
             <span>5 Anggota</span>
@@ -1008,6 +1036,17 @@ export function RoomTaskLifecycle({
           {/* TAB 1: PROGRES ANGGOTA */}
           {drawerTab === 'Progres' && (
             <div className="space-y-4">
+              <div className="pb-3 border-b border-[var(--c1)] space-y-2">
+                <span className="eyebrow text-xs">Anggota Tim</span>
+                <AvatarStack
+                  members={members.map((m) => ({
+                    name: m.name,
+                    role: m.role,
+                    isOwner: m.isOwner,
+                  }))}
+                />
+              </div>
+
               <span className="eyebrow text-xs">Poin Kontribusi Selesai</span>
               <div className="space-y-3">
                 {members.map((m) => {

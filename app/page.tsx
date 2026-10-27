@@ -14,7 +14,6 @@ import {
   TabsPill,
   Field,
   Drawer,
-  TaskRow,
 } from './components/DesignSystem';
 import { ThumbBar } from './components/ThumbBar';
 import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
@@ -24,7 +23,6 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('Semua');
   const [emailInput, setEmailInput] = useState('');
   const [authSent, setAuthSent] = useState(false);
   const [storyModalOpen, setStoryModalOpen] = useState(false);
