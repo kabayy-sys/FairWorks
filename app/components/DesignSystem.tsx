@@ -58,8 +58,8 @@ interface TrackProps {
   size?: 'normal' | 'large';
 }
 
-export function Track({ done = 0, review = 0, doing = 0, open = 0, total = 100, size = 'normal' }: TrackProps) {
-  const sum = Math.max(1, done + review + doing + open);
+export function Track({ done = 0, review = 0, doing = 0, open = 0, total, size = 'normal' }: TrackProps) {
+  const sum = total ? Math.max(1, total) : Math.max(1, done + review + doing + open);
   const pDone = (done / sum) * 100;
   const pReview = (review / sum) * 100;
   const pDoing = (doing / sum) * 100;

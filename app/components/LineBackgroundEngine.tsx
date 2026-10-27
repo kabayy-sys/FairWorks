@@ -42,7 +42,7 @@ export function LineBackgroundEngine({ mood }: LineBackgroundEngineProps) {
     let tStart = 0;
     let t0 = 0;
     let vis = true;
-    let rzT: any = 0;
+    let rzT: ReturnType<typeof setTimeout> | number = 0;
     let mx = -999;
     let my = -999;
     let act = 0;

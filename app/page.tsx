@@ -14,9 +14,9 @@ import {
   TabsPill,
   Field,
   Drawer,
-  TaskRow,
 } from './components/DesignSystem';
 import { ThumbBar } from './components/ThumbBar';
+import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
 import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
 import { JoinRoomModal } from './components/JoinRoomModal';
 
@@ -25,28 +25,28 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('Semua');
   const [emailInput, setEmailInput] = useState('');
   const [authSent, setAuthSent] = useState(false);
   const [storyModalOpen, setStoryModalOpen] = useState(false);
   const [joinModalOpen, setJoinModalOpen] = useState(false);
-  const [roomSubTab, setRoomSubTab] = useState<'papan' | 'kontrak'>('kontrak');
+  const [roomSubTab, setRoomSubTab] = useState<'papan' | 'kontrak'>('papan');
 
   // State Flow Kontrak Demo / Nyata
-  const [contractLocked, setContractLocked] = useState(false);
+  const [contractLocked, setContractLocked] = useState(true);
   const [contractDeadline, setContractDeadline] = useState<string | null>(null);
   const [contractMembers, setContractMembers] = useState<ContractMember[]>([
     { id: 'me', name: 'Ayu', role: 'ketua', contractVote: 'agree' },
-    { id: 'u2', name: 'Bima', role: 'anggota', contractVote: null },
-    { id: 'u3', name: 'Citra', role: 'anggota', contractVote: null },
-    { id: 'u4', name: 'Dimas', role: 'anggota', contractVote: null },
-    { id: 'u5', name: 'Esa', role: 'anggota', contractVote: null },
+    { id: 'u2', name: 'Bima', role: 'anggota', contractVote: 'agree' },
+    { id: 'u3', name: 'Citra', role: 'anggota', contractVote: 'agree' },
+    { id: 'u4', name: 'Dimas', role: 'anggota', contractVote: 'agree' },
+    { id: 'u5', name: 'Esa', role: 'anggota', contractVote: 'agree' },
   ]);
   const [contractTasks, setContractTasks] = useState<ContractTaskItem[]>([
-    { id: 't1', judul: 'Tulis bab latar belakang', poin: 10, dueDate: '2026-11-05', status: 'open' },
-    { id: 't2', judul: 'Rangkum 10 jurnal relevan', poin: 15, dueDate: '2026-11-06', status: 'open' },
-    { id: 't3', judul: 'Kumpulkan 30 responden survei', poin: 20, dueDate: '2026-11-08', status: 'open' },
-    { id: 't4', judul: 'Olah data di spreadsheet', poin: 15, dueDate: '2026-11-10', status: 'open' },
+    { id: 't1', judul: 'Tulis bab latar belakang', poin: 10, dueDate: '2026-10-25', status: 'done' },
+    { id: 't2', judul: 'Rangkum 10 jurnal relevan', poin: 15, dueDate: '2026-10-29', status: 'review' },
+    { id: 't3', judul: 'Kumpulkan 30 responden survei', poin: 20, dueDate: '2026-10-24', status: 'doing' },
+    { id: 't4', judul: 'Olah data di spreadsheet', poin: 15, dueDate: '2026-11-02', status: 'doing' },
+    { id: 't5', judul: 'Desain slide presentasi akhir', poin: 10, dueDate: '2026-11-05', status: 'open' },
   ]);
 
   const activeMood: BackgroundMood = currentView === 'story' ? 'landing' : (currentView as BackgroundMood);
@@ -229,181 +229,120 @@ export default function Home() {
         )}
 
         {/* ==============================================================
-            VIEW 4: ROOM — 2 Zona: Strip Progres + TaskRow 1 Kolom (DESIGN.md v2 §5.4)
+            VIEW 4: ROOM — Siklus Pengerjaan Tugas T4 (Riski) & Flow Kontrak T3 (Iwan)
            ============================================================== */}
         {currentView === 'room' && (
-          <div className="space-y-5 animate-in fade-in duration-700">
-            {/* Zona 1: Kepala + Strip Progres tipis */}
-            <div className="space-y-3 border-b border-[var(--c1)] pb-5">
-              <div className="flex justify-between items-center text-xs">
-                <div className="flex items-center gap-2 font-mono text-[var(--c3)]">
-                  <span>RPD-4K7</span>
-                  <span>·</span>
-                  <span className="text-[var(--c4)]">Ketua</span>
-                </div>
+          <div className="space-y-5 animate-in fade-in duration-500">
+            {/* Toggle Sub-View: Papan Tugas vs Alur Kontrak */}
+            <div className="flex items-center justify-between pb-1">
+              <div className="flex bg-[var(--c1)] p-0.5 rounded-full border border-[var(--c2)] text-xs font-mono">
                 <button
-                  onClick={() => setIsDrawerOpen(true)}
-                  className="font-mono text-xs text-[var(--c3)] hover:text-[var(--c4)] flex items-center gap-1 cursor-pointer"
+                  onClick={() => setRoomSubTab('papan')}
+                  className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all ${
+                    roomSubTab === 'papan' ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'text-[var(--c3)] hover:text-[var(--c4)]'
+                  }`}
                 >
-                  Anggota <span className="text-[10px]">⌄</span>
+                  Papan Tugas
                 </button>
-              </div>
-
-              <h2 className="text-2xl font-semibold tracking-tight">Riset Pasar Digital</h2>
-
-              {/* Strip Tipis Progres: angka 20-28px, bar 8px (Hard Rule §1.5) */}
-              <div className="space-y-1.5 pt-1">
-                <div className="flex justify-between items-baseline text-xs font-mono">
-                  <span className="text-lg font-semibold text-[var(--c4)]">
-                    <Odometer value="40%" />
-                  </span>
-                  <span className="text-[var(--c3)]">16/40 poin</span>
-                </div>
-                <Track done={40} review={30} doing={20} open={10} />
-              </div>
-
-              {/* 2 Tab saja (DESIGN.md v2 §3 #3) */}
-              <div className="pt-2 flex items-center justify-between gap-2">
-                <TabsPill tabs={['Semua', 'Bisa diambil']} activeTab={activeTab} onChange={setActiveTab} />
-                <div className="flex bg-[var(--c1)] p-0.5 rounded-full border border-[var(--c2)] text-[11px] font-mono">
-                  <button
-                    onClick={() => setRoomSubTab('kontrak')}
-                    className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
-                      roomSubTab === 'kontrak' ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'text-[var(--c3)]'
-                    }`}
-                  >
-                    Kontrak
-                  </button>
-                  <button
-                    onClick={() => setRoomSubTab('papan')}
-                    className={`px-3 py-1 rounded-full cursor-pointer transition-all ${
-                      roomSubTab === 'papan' ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'text-[var(--c3)]'
-                    }`}
-                  >
-                    Papan
-                  </button>
-                </div>
+                <button
+                  onClick={() => setRoomSubTab('kontrak')}
+                  className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all ${
+                    roomSubTab === 'kontrak' ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'text-[var(--c3)] hover:text-[var(--c4)]'
+                  }`}
+                >
+                  Kontrak {contractLocked ? '(Terkunci)' : '(Draf)'}
+                </button>
               </div>
             </div>
 
-            {/* Sub-view: Alur Kontrak (T3) vs Papan Tugas (T4) */}
-            {roomSubTab === 'kontrak' ? (
-              <ContractFlow
-                roomName="Riset Pasar Digital"
-                roomCode="RPD-4K7"
-                isOwner={true}
-                isLocked={contractLocked}
-                lockedAt={contractLocked ? new Date().toISOString() : null}
-                contractDeadline={contractDeadline}
-                members={contractMembers}
-                tasks={contractTasks}
-                currentUserId="me"
-                onAddTask={(newTask) => {
-                  const id = `t-${Date.now()}`;
-                  setContractTasks((prev) => [
-                    ...prev,
-                    {
-                      ...newTask,
-                      id,
-                      status: 'open',
-                      postLockVotes: newTask.postLockPending ? [] : undefined,
-                    },
-                  ]);
-                  setToastMessage(
-                    newTask.postLockPending
-                      ? 'Tugas diajukan ke mayoritas anggota!'
-                      : 'Tugas berhasil ditambahkan ke draf kontrak'
-                  );
-                }}
-                onEditTask={(taskId, updates) => {
-                  setContractTasks((prev) =>
-                    prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t))
-                  );
-                  setToastMessage('Tugas berhasil diubah');
-                }}
-                onDeleteTask={(taskId) => {
-                  setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
-                  setToastMessage('Tugas dihapus dari kontrak');
-                }}
-                onSubmitContract={() => {
-                  const d = new Date();
-                  d.setHours(d.getHours() + 24);
-                  setContractDeadline(d.toISOString());
-                  setToastMessage('Kontrak diajukan! Batas 24 jam dimulai.');
-                }}
-                onVoteContract={(agree, note) => {
-                  setContractMembers((prev) =>
-                    prev.map((m) =>
-                      m.id === 'me'
-                        ? { ...m, contractVote: agree ? 'agree' : 'request_changes', contractVoteNote: note || null }
-                        : m
-                    )
-                  );
-                  if (agree) {
-                    setToastMessage('Persetujuan Anda telah dicatat.');
-                  } else {
-                    setToastMessage('Catatan revisi kontrak telah dikirim.');
-                  }
-                }}
-                onVotePostLockTask={(taskId, agree) => {
-                  if (agree) {
-                    // Cek mayoritas atau setujui langsung
-                    setContractTasks((prev) =>
-                      prev.map((t) => (t.id === taskId ? { ...t, postLockPending: false } : t))
-                    );
-                    setToastMessage('Tugas pasca-lock disetujui mayoritas & aktif!');
-                  } else {
-                    setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
-                    setToastMessage('Tugas pasca-lock ditolak anggota.');
-                  }
-                }}
-                onAutoLockTrigger={() => {
-                  setContractLocked(true);
-                  setContractDeadline(null);
-                  setToastMessage('Waktu 24 jam habis: Kontrak terkunci otomatis!');
-                }}
+            {roomSubTab === 'papan' ? (
+              <RoomTaskLifecycle
+                currentUserId="user-riski"
+                currentUserName="Riski"
+                onNavigateHome={() => setCurrentView('dashboard')}
               />
             ) : (
-              /* Zona 2: Satu Kolom Daftar Tugas (TaskRow - Papan T4) */
-              <div className="space-y-2">
-                <TaskRow
-                  status="review"
-                  title="Rangkum 10 jurnal relevan"
-                  points={15}
-                  assignee="Bima"
-                  reviewStatus="1/2 setuju"
-                  onClick={() => setToastMessage('Membuka modal detail suara tugas...')}
-                />
-                <TaskRow
-                  status="doing"
-                  title="Kumpulkan 30 responden survei"
-                  points={20}
-                  assignee="Dimas"
-                  isOverdue={true}
-                  onClick={() => setToastMessage('Tugas lewat tenggat — siap diambil alih!')}
-                />
-                <TaskRow
-                  status="doing"
-                  title="Olah data di spreadsheet"
-                  points={15}
-                  assignee="Esa"
-                  dueText="5 hari lagi"
-                  onClick={() => setToastMessage('Membuka detail tugas...')}
-                />
-                <TaskRow
-                  status="open"
-                  title="Desain slide presentasi akhir"
-                  points={10}
-                  dueText="Bisa diambil"
-                  onClick={() => setToastMessage('Ambil tugas ini dengan 1 ketukan!')}
-                />
-                <TaskRow
-                  status="done"
-                  title="Tulis bab latar belakang"
-                  points={10}
-                  assignee="Ayu"
-                  dueText="Selesai"
-                  onClick={() => setToastMessage('Tugas sudah disetujui penuh.')}
+              <div className="space-y-4 pt-2">
+                <div className="border-b border-[var(--c1)] pb-4 space-y-1">
+                  <span className="eyebrow text-xs">Agreement Lock</span>
+                  <h3 className="text-xl font-semibold">Kesepakatan Porsi Kerja Tim</h3>
+                  <p className="text-xs text-[var(--c3)]">
+                    Ketua menentukan bobot tugas, seluruh anggota menyepakati di awal sebelum pengerjaan dimulai.
+                  </p>
+                </div>
+                <ContractFlow
+                  roomName="Riset Pasar Digital"
+                  roomCode="RPD-4K7"
+                  isOwner={true}
+                  isLocked={contractLocked}
+                  lockedAt={contractLocked ? '2026-10-24T10:00:00Z' : null}
+                  contractDeadline={contractDeadline}
+                  members={contractMembers}
+                  tasks={contractTasks}
+                  currentUserId="me"
+                  onAddTask={(newTask) => {
+                    const id = `t-${Date.now()}`;
+                    setContractTasks((prev) => [
+                      ...prev,
+                      {
+                        ...newTask,
+                        id,
+                        status: 'open',
+                        postLockVotes: newTask.postLockPending ? [] : undefined,
+                      },
+                    ]);
+                    setToastMessage(
+                      newTask.postLockPending
+                        ? 'Tugas diajukan ke mayoritas anggota!'
+                        : 'Tugas berhasil ditambahkan ke draf kontrak'
+                    );
+                  }}
+                  onEditTask={(taskId, updates) => {
+                    setContractTasks((prev) =>
+                      prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t))
+                    );
+                    setToastMessage('Tugas berhasil diubah');
+                  }}
+                  onDeleteTask={(taskId) => {
+                    setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
+                    setToastMessage('Tugas dihapus dari kontrak');
+                  }}
+                  onSubmitContract={() => {
+                    const d = new Date();
+                    d.setHours(d.getHours() + 24);
+                    setContractDeadline(d.toISOString());
+                    setToastMessage('Kontrak diajukan! Batas 24 jam dimulai.');
+                  }}
+                  onVoteContract={(agree, note) => {
+                    setContractMembers((prev) =>
+                      prev.map((m) =>
+                        m.id === 'me'
+                          ? { ...m, contractVote: agree ? 'agree' : 'request_changes', contractVoteNote: note || null }
+                          : m
+                      )
+                    );
+                    if (agree) {
+                      setToastMessage('Persetujuan Anda telah dicatat.');
+                    } else {
+                      setToastMessage('Catatan revisi kontrak telah dikirim.');
+                    }
+                  }}
+                  onVotePostLockTask={(taskId, agree) => {
+                    if (agree) {
+                      setContractTasks((prev) =>
+                        prev.map((t) => (t.id === taskId ? { ...t, postLockPending: false } : t))
+                      );
+                      setToastMessage('Tugas pasca-lock disetujui mayoritas & aktif!');
+                    } else {
+                      setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
+                      setToastMessage('Tugas pasca-lock ditolak anggota.');
+                    }
+                  }}
+                  onAutoLockTrigger={() => {
+                    setContractLocked(true);
+                    setContractDeadline(null);
+                    setToastMessage('Waktu 24 jam habis: Kontrak terkunci otomatis!');
+                  }}
                 />
               </div>
             )}
@@ -524,6 +463,8 @@ export default function Home() {
           setCurrentView('room');
         }}
       />
+
+      {/* Global Toast */}
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
 
       {/* Global Modal (Join Kode) */}
@@ -579,7 +520,7 @@ export default function Home() {
       </Drawer>
 
       {/* Thumb Bar — Satu Aksi Utama Kontekstual (DESIGN.md v2 §4) */}
-      {currentView !== 'laporan' && (
+      {currentView !== 'laporan' && currentView !== 'room' && (
         <ThumbBar
           view={activeMood}
           onNavigate={setCurrentView}
@@ -588,19 +529,12 @@ export default function Home() {
               ? 'Mulai gratis'
               : currentView === 'auth'
               ? 'Kirim tautan masuk'
-              : currentView === 'dashboard'
-              ? 'Buat ruangan'
-              : 'Ambil tugas'
+              : 'Buat ruangan'
           }
           onPrimaryClick={() => {
             if (currentView === 'landing') setCurrentView('auth');
             else if (currentView === 'auth') setAuthSent(true);
             else if (currentView === 'dashboard') setToastMessage('Buka form buat ruangan');
-            else setToastMessage('Tugas diambil!');
-          }}
-          secondaryText={currentView === 'room' ? 'Anggota' : undefined}
-          onSecondaryClick={() => {
-            if (currentView === 'room') setIsDrawerOpen(true);
           }}
         />
       )}

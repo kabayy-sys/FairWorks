@@ -81,6 +81,34 @@ export async function getReport(token: string) {
   return data;
 }
 
+export async function releaseTask(taskId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({
+      assignee_id: null,
+      status: "open",
+      revision_note: null,
+    })
+    .eq("id", taskId)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export type LinkChipType = "GitHub" | "Dokumen Google" | "Figma" | "Drive" | "Lainnya";
+
+export function detectLinkType(url: string): LinkChipType {
+  const lower = url.toLowerCase();
+  if (lower.includes("github.com")) return "GitHub";
+  if (lower.includes("docs.google.com")) return "Dokumen Google";
+  if (lower.includes("figma.com")) return "Figma";
+  if (lower.includes("drive.google.com")) return "Drive";
+  return "Lainnya";
+}
+
 export async function createTask(params: {
   roomId: string;
   judul: string;
