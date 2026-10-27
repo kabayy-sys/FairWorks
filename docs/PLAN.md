@@ -45,14 +45,15 @@ Keluaran: kerangka 5 view jalan + design system v1 rilis di repo.
 - [x] Halaman Story statis = contoh pemakaian semua komponen (referensi Iwan & Riski)
 - [x] Bonus: keyframes animasi native + override `prefers-reduced-motion` (hasil audit PR #5)
 
-### T2 — Kontrak Backend (Raken)
+### T2 — Kontrak Backend (Raken) ✅ SELESAI (PR #6)
 Keluaran: API hidup + tipe TypeScript — prasyarat T3 & T4 beneran nyambung.
-- [ ] Schema SQL 7 tabel + indeks + RLS lengkap
-- [ ] Auth magic link + template email
-- [ ] Tipe TypeScript + definisi RPC: `submit_contract`, `vote_contract`, `auto_lock`, `take_task`, `submit_proof`, `cast_vote`, `get_report(token)`
-- [ ] RPC jalan + teruji (mayoritas, reset vote, ambil alih — semua di sisi DB)
-- [ ] Supabase Realtime channel per ruangan
-- [ ] Seeding 3 ruangan demo
+- [x] Schema SQL 7 tabel + indeks + RLS lengkap
+- [x] Auth magic link + template email (klien supabase terkonfigurasi)
+- [x] Tipe TypeScript + definisi RPC: `submit_contract`, `vote_contract`, `auto_lock`, `take_task`, `submit_proof`, `cast_vote`, `get_report(token)`
+- [x] RPC jalan + teruji (mayoritas, reset vote, ambil alih — semua di sisi DB)
+- [x] Supabase Realtime channel per ruangan (publikasi supabase_realtime aktif)
+- [x] Seeding 3 ruangan demo
+- [x] Bonus: helper API siap pakai di `lib/api/fairworks.ts`
 
 ### T3 — Flow Kontrak (Iwan) — butuh T1, nyambung saat T2 siap
 Keluaran: kontrak bisa dibuat, dikirim, disetujui, terkunci.
