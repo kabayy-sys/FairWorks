@@ -207,3 +207,103 @@ export function Field({ label, error, className = '', ...props }: FieldProps) {
     </div>
   );
 }
+
+// 10. Drawer (DESIGN.md v2 §3: varian Panel, geser dari kanan 0.5s)
+interface DrawerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
+
+export function Drawer({ isOpen, onClose, title, children }: DrawerProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex justify-end">
+      <div className="absolute inset-0 bg-[var(--c0)]/80 backdrop-blur-sm transition-opacity" onClick={onClose} />
+      <div className="relative w-full max-w-sm h-full bg-[var(--c0)] border-l border-[var(--c2)] p-6 shadow-2xl flex flex-col gap-6 animate-in slide-in-from-right duration-500 overflow-y-auto">
+        <div className="flex items-center justify-between pb-4 border-b border-[var(--c1)]">
+          <h3 className="text-lg font-semibold text-[var(--c4)]">{title}</h3>
+          <button onClick={onClose} className="text-[var(--c3)] hover:text-[var(--c4)] text-lg px-2">
+            ✕
+          </button>
+        </div>
+        <div className="flex-1 space-y-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// 11. TaskRow (DESIGN.md v2 §1.5 & §5.4: Baris satu kolom)
+interface TaskRowProps {
+  status: 'done' | 'review' | 'doing' | 'open';
+  title: string;
+  points: number;
+  assignee?: string;
+  dueText?: string;
+  reviewStatus?: string;
+  isOverdue?: boolean;
+  onClick?: () => void;
+}
+
+export function TaskRow({
+  status,
+  title,
+  points,
+  assignee,
+  dueText,
+  reviewStatus,
+  isOverdue,
+  onClick,
+}: TaskRowProps) {
+  const statusIcons = {
+    done: '✓',
+    review: '◨',
+    doing: '◐',
+    open: '○',
+  };
+
+  const statusColors = {
+    done: 'text-[var(--c4)]',
+    review: 'text-[var(--c3)]',
+    doing: 'text-[var(--c2)]',
+    open: 'text-[var(--c3)]',
+  };
+
+  return (
+    <div
+      onClick={onClick}
+      className="p-3.5 sm:p-4 rounded-[14px] bg-[var(--c1)] border border-[var(--c2)]/50 hover:border-[var(--c4)] flex items-center justify-between gap-3 cursor-pointer transition-all active:scale-[0.99]"
+    >
+      <div className="flex items-center gap-3 min-w-0">
+        <span className={`text-base font-bold select-none ${statusColors[status]}`}>{statusIcons[status]}</span>
+        <div className="min-w-0">
+          <h4 className="text-sm font-medium text-[var(--c4)] truncate">{title}</h4>
+          <div className="flex items-center gap-2 text-xs text-[var(--c3)] pt-0.5">
+            <span className="font-mono text-[var(--c4)]">{points}p</span>
+            <span>·</span>
+            <span className="truncate">{assignee || 'Bisa diambil'}</span>
+            {reviewStatus && (
+              <>
+                <span>·</span>
+                <span className="font-mono">{reviewStatus}</span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {isOverdue && (
+          <span className="px-2 py-0.5 bg-[var(--c4)] text-[var(--c0)] font-mono text-[11px] font-semibold rounded">
+            lewat 2 hari
+          </span>
+        )}
+        {dueText && !isOverdue && (
+          <span className="font-mono text-xs text-[var(--c3)]">{dueText}</span>
+        )}
+      </div>
+    </div>
+  );
+}
