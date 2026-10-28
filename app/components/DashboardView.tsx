@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Panel, Track, Odometer, Modal, Field, Btn } from './DesignSystem';
+import React from 'react';
+import { Panel, Track, Odometer } from './DesignSystem';
 
 export interface DashboardRoomItem {
   id: string;
@@ -23,7 +23,6 @@ interface DashboardViewProps {
   myTaskCount: number;
   myTotalPoints: number;
   onSelectRoom: (room: DashboardRoomItem) => void;
-  onCreateRoom: (nama: string) => Promise<void> | void;
   onOpenJoinModal: () => void;
 }
 
@@ -33,14 +32,8 @@ export function DashboardView({
   myTaskCount,
   myTotalPoints,
   onSelectRoom,
-  onCreateRoom,
   onOpenJoinModal,
 }: DashboardViewProps) {
-  const [createModalOpen, setCreateModalOpen] = useState(false);
-  const [newRoomName, setNewRoomName] = useState('');
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState('');
-
   // Tanggal hari ini dalam format Bahasa Indonesia (DESIGN.md v2 §5.3)
   const todayFormatted = new Intl.DateTimeFormat('id-ID', {
     weekday: 'long',
@@ -48,26 +41,6 @@ export function DashboardView({
     month: 'short',
     year: 'numeric',
   }).format(new Date());
-
-  const handleCreateSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRoomName.trim()) {
-      setCreateError('Nama ruangan tidak boleh kosong');
-      return;
-    }
-
-    setCreating(true);
-    setCreateError('');
-    try {
-      await onCreateRoom(newRoomName.trim());
-      setNewRoomName('');
-      setCreateModalOpen(false);
-    } catch (err: unknown) {
-      setCreateError(err instanceof Error ? err.message : 'Gagal membuat ruangan');
-    } finally {
-      setCreating(false);
-    }
-  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 max-w-2xl mx-auto">
@@ -102,28 +75,18 @@ export function DashboardView({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <span className="eyebrow text-xs">Ruangan Kamu</span>
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            className="text-xs font-mono text-[var(--c4)] hover:underline flex items-center gap-1 cursor-pointer"
-          >
-            + Buat Ruangan
-          </button>
         </div>
 
-        {rooms.length === 0 ? (
-          <div className="p-8 border border-dashed border-[var(--c2)] rounded-[18px] text-center space-y-3 bg-[var(--c0)]/40">
+        {rooms.length === 0 && (
+          <div className="p-8 border border-dashed border-[var(--c2)] rounded-[18px] text-center space-y-2 bg-[var(--c0)]/40">
             <p className="text-sm text-[var(--c3)]">Kamu belum bergabung dalam ruangan kerja kelompok.</p>
-            <div className="flex justify-center gap-2 pt-1">
-              <Btn onClick={() => setCreateModalOpen(true)} className="min-h-[38px] text-xs px-4">
-                Buat Ruangan
-              </Btn>
-              <Btn variant="outline" onClick={onOpenJoinModal} className="min-h-[38px] text-xs px-4">
-                Masuk Kode
-              </Btn>
-            </div>
+            <p className="text-xs text-[var(--c3)] font-mono">
+              Gunakan tombol <strong>Buat ruangan</strong> di bawah atau masuk dengan kode.
+            </p>
           </div>
-        ) : (
-          rooms.map((room) => {
+        )}
+
+        {rooms.map((room) => {
             const sumPoints = room.totalPoints || 1;
             const pctDone = Math.round((room.donePoints / sumPoints) * 100);
 
@@ -172,8 +135,7 @@ export function DashboardView({
                 </div>
               </Panel>
             );
-          })
-        )}
+          })}
 
         {/* Baris dashed masuk kode (Sesuai wireframe v2 §5.3) */}
         <div
@@ -188,33 +150,6 @@ export function DashboardView({
           </span>
         </div>
       </div>
-
-      {/* Modal Buat Ruangan Cepat (1 field nama sesuai PRD F2) */}
-      <Modal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} title="Buat Ruangan Baru">
-        <form onSubmit={handleCreateSubmit} className="space-y-4">
-          <p className="text-xs text-[var(--c3)] font-mono leading-relaxed">
-            Satu nama untuk ruang kerja kelompokmu. Kode unik (seperti <span className="text-[var(--c4)]">RPD-4K7</span>) akan digenerate otomatis.
-          </p>
-
-          <Field
-            label="Nama Ruangan (Wajib)"
-            placeholder="Contoh: Riset Pasar Digital"
-            value={newRoomName}
-            onChange={(e) => {
-              setNewRoomName(e.target.value);
-              if (createError) setCreateError('');
-            }}
-            autoFocus
-            required
-          />
-
-          {createError && <p className="text-xs text-[var(--c4)] font-mono">{createError}</p>}
-
-          <Btn type="submit" loading={creating} className="w-full">
-            Buat Ruangan Sekarang
-          </Btn>
-        </form>
-      </Modal>
     </div>
   );
 }
