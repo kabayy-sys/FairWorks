@@ -19,12 +19,13 @@ import { ThumbBar } from './components/ThumbBar';
 import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
 import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
 import { JoinRoomModal } from './components/JoinRoomModal';
+import { CreateRoomModal } from './components/CreateRoomModal';
 import { DashboardView, DashboardRoomItem } from './components/DashboardView';
 import { createClient } from '@/lib/supabase/client';
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<BackgroundMood | 'story'>('landing');
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [createRoomModalOpen, setCreateRoomModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
@@ -227,35 +228,6 @@ export default function Home() {
             onSelectRoom={(room) => {
               setCurrentView('room');
               setToastMessage(`Membuka ruangan ${room.nama}`);
-            }}
-            onCreateRoom={(nama) => {
-              const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-              let code = '';
-              for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
-              code += '-';
-              for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
-
-              const newRoom: DashboardRoomItem = {
-                id: `room-${Date.now()}`,
-                nama,
-                kode: code,
-                role: 'ketua',
-                membersCount: 1,
-                totalPoints: 0,
-                donePoints: 0,
-                reviewPoints: 0,
-                doingPoints: 0,
-                openPoints: 0,
-                status: 'draft',
-              };
-              setDashboardRooms((prev) => [newRoom, ...prev]);
-              // Sesuai FAIRWORKS_WORKFLOW_REVISION Langkah B:
-              // Langsung arahkan (redirect) pengguna masuk ke Form Tugas Kontrak (Pre-lock Phase)
-              setContractLocked(false);
-              setContractDeadline(null);
-              setRoomSubTab('kontrak');
-              setCurrentView('room');
-              setToastMessage(`Ruangan "${nama}" (${code}) dibuat! Silakan susun tugas kontrak.`);
             }}
             onOpenJoinModal={() => setJoinModalOpen(true)}
           />
@@ -502,18 +474,41 @@ export default function Home() {
         }}
       />
 
+      {/* Create Room Modal (T5: Buat ruangan dari ThumbBar) */}
+      <CreateRoomModal
+        isOpen={createRoomModalOpen}
+        onClose={() => setCreateRoomModalOpen(false)}
+        onCreate={(nama) => {
+          const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
+          let code = '';
+          for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
+          code += '-';
+          for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
+
+          const newRoom: DashboardRoomItem = {
+            id: `room-${Date.now()}`,
+            nama,
+            kode: code,
+            role: 'ketua',
+            membersCount: 1,
+            totalPoints: 0,
+            donePoints: 0,
+            reviewPoints: 0,
+            doingPoints: 0,
+            openPoints: 0,
+            status: 'draft',
+          };
+          setDashboardRooms((prev) => [newRoom, ...prev]);
+          setContractLocked(false);
+          setContractDeadline(null);
+          setRoomSubTab('kontrak');
+          setCurrentView('room');
+          setToastMessage(`Ruangan "${nama}" (${code}) dibuat! Silakan susun tugas.`);
+        }}
+      />
+
       {/* Global Toast */}
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
-
-      {/* Global Modal (Join Kode) */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Masuk Ruangan">
-        <div className="space-y-4">
-          <Field label="Kode Ruangan" placeholder="Contoh: RPD-4K7" />
-          <Btn onClick={() => { setIsModalOpen(false); setToastMessage('Berhasil masuk ruangan!'); }} className="w-full">
-            Gabung
-          </Btn>
-        </div>
-      </Modal>
 
       {/* Story Modal */}
       <Modal isOpen={storyModalOpen} onClose={() => setStoryModalOpen(false)} title="Modal Keputusan">
@@ -572,38 +567,7 @@ export default function Home() {
           onPrimaryClick={() => {
             if (currentView === 'landing') setCurrentView('auth');
             else if (currentView === 'auth') setAuthSent(true);
-            else if (currentView === 'dashboard') {
-              const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-              let code = '';
-              for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
-              code += '-';
-              for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
-
-              const defaultName = `Ruangan Proyek ${dashboardRooms.length + 1}`;
-              const newRoom: DashboardRoomItem = {
-                id: `room-${Date.now()}`,
-                nama: defaultName,
-                kode: code,
-                role: 'ketua',
-                membersCount: 1,
-                totalPoints: 0,
-                donePoints: 0,
-                reviewPoints: 0,
-                doingPoints: 0,
-                openPoints: 0,
-                status: 'draft',
-              };
-              setDashboardRooms((prev) => [newRoom, ...prev]);
-              setContractLocked(false);
-              setContractDeadline(null);
-              setRoomSubTab('kontrak');
-              setCurrentView('room');
-              setToastMessage(`Ruangan baru dibuat (${code})! Silakan susun tugas.`);
-            }
-          }}
-          secondaryText={currentView === 'dashboard' ? 'Masuk kode' : undefined}
-          onSecondaryClick={() => {
-            if (currentView === 'dashboard') setJoinModalOpen(true);
+            else if (currentView === 'dashboard') setCreateRoomModalOpen(true);
           }}
         />
       )}
