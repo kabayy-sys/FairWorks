@@ -74,4 +74,28 @@ Berikut adalah urutan alur baru yang wajib diimplementasikan secara utuh dari aw
    - Bar aksi utama di perangkat mobile diposisikan tetap di bagian bawah layar (`fixed bottom-0 left-0 right-0 z-40 bg-[var(--c0)]/90 backdrop-blur-md border-t border-[var(--c1)]`), memastikan seluruh tombol utama terjangkau dengan satu ibu jari.
 
 ---
+
+## 4. Pembagian Tugas Spesifik per Tim (Non-Overlapping Task Breakdown)
+
+Supaya pengerjaan berjalan paralel tanpa ada tugas yang saling menabrak, berikut pembagian domain kerja yang jelas:
+
+### ✦ Chello (Frontend A — Layout, Responsif & Animasi Visual)
+- **Tugas 1:** Standarisasi lebar kontainer utama (`max-w-5xl` dan `max-w-[760px]`) di seluruh komponen utama untuk memastikan tampilan 100% konsisten di berbagai ukuran layar laptop (Raken & Chello).
+- **Tugas 2:** Menyembunyikan atau memisahkan halaman *Story* dari navigasi publik/header utama sehingga hanya aktif saat mode development.
+- **Tugas 3:** Menyempurnakan transisi animasi morph dan fade antar menu/view di `app/page.tsx` agar perpindahan terasa mengalir dan saling menyambung (*smooth morphing*).
+
+### ✦ Iwan (Frontend B — Dashboard, Pembuatan Ruangan & Kontrak)
+- **Tugas 1:** Membersihkan redudansi di `DashboardView.tsx` (menghapus duplikasi form input kode dan tombol buat ruangan yang bertumpuk).
+- **Tugas 2:** Menyelaraskan alur pembuatan ruangan: tombol Buat Ruangan memicu modal input nama ruangan ➔ setelah dikonfirmasi, sistem membuat ruangan dan **langsung mengarahkan (*redirect*) ke Form Tugas Kontrak** (Pre-lock Phase).
+- **Tugas 3:** Memastikan rekap kontrak dan tombol kirim kontrak berfungsi optimal sebelum memicu animasi Ink-Stamp Lock.
+
+### ✦ Riski (Frontend C — Papan Tugas Aktif & Mobile Thumb Bar)
+- **Tugas 1:** Menyempurnakan Papan Tugas Aktif (`RoomTaskLifecycle.tsx`) — tabs status, kartu tugas, aksi ambil tugas, dan pengiriman bukti dengan deteksi chip otomatis.
+- **Tugas 2:** Merapikan dan mengoptimalkan *Thumb Bar* di bagian bawah perangkat mobile (`ThumbBar.tsx`) agar ergonomis, bebas *overflow*, dan tidak menutupi konten interaktif utama.
+
+### ✦ Raken (Backend & Integrasi E2E)
+- **Tugas 1:** Memastikan RPC Supabase (`submit_contract`, `take_task`, `submit_proof`, `cast_vote`) merespon dengan benar sesuai alur baru pembuatan ruangan berlanjut ke kontrak.
+- **Tugas 2:** Melakukan audit RLS dan uji coba integrasi End-to-End (T6) bersama frontend setelah seluruh task di atas selesai digabung.
+
+---
 *Dokumen ini resmi berlaku sebagai acuan implementasi kode oleh Raken, Chello, Iwan, dan Riski untuk menyelesaikan seluruh tahapan menuju MVP Semifinal FairWorks.*
