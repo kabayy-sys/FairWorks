@@ -57,20 +57,28 @@ export interface ActivityItem {
   timeAgo: string;
 }
 
-interface RoomTaskLifecycleProps {
+export interface RoomTaskLifecycleProps {
   currentUserId?: string;
   currentUserName?: string;
+  roomName?: string;
+  roomCode?: string;
+  initialTasks?: TaskItem[];
+  initialMembers?: MemberItem[];
   onNavigateHome?: () => void;
 }
 
 export function RoomTaskLifecycle({
   currentUserId = 'user-riski',
   currentUserName = 'Riski',
+  roomName = 'Riset Pasar Digital',
+  roomCode = 'RPD-4K7',
+  initialTasks = [],
+  initialMembers = [],
   onNavigateHome,
 }: RoomTaskLifecycleProps) {
-  // Initial state kosong sesuai permintaan
-  const [members, setMembers] = useState<MemberItem[]>([]);
-  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  // State anggota, tugas, dan aktivitas dengan fallback prop
+  const [members, setMembers] = useState<MemberItem[]>(initialMembers);
+  const [tasks, setTasks] = useState<TaskItem[]>(initialTasks);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   // UI States
@@ -431,7 +439,7 @@ export function RoomTaskLifecycle({
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-28 sm:pb-24 max-w-[760px] mx-auto">
       {/* Toast Notifikasi */}
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
 
@@ -451,9 +459,9 @@ export function RoomTaskLifecycle({
                 ←
               </button>
             )}
-            <span className="font-semibold text-[var(--c4)]">RPD-4K7</span>
+            <span className="font-semibold text-[var(--c4)]">{roomCode}</span>
             <span>·</span>
-            <span>5 Anggota</span>
+            <span>{members.length > 0 ? `${members.length} Anggota` : 'Ruangan'}</span>
             <span>·</span>
             <span className="px-2 py-0.5 rounded-full bg-[var(--c1)] border border-[var(--c2)] text-[var(--c4)]">
               Kontrak Terkunci
@@ -471,7 +479,7 @@ export function RoomTaskLifecycle({
 
         {/* Judul Ruangan */}
         <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--c4)]">
-          Riset Pasar Digital
+          {roomName}
         </h2>
 
         {/* Strip Progres Tipis: Angka 20-28px + Track 8px (HARD RULE §1.5 #5) */}
@@ -827,8 +835,19 @@ export function RoomTaskLifecycle({
               <div className="flex justify-between items-center">
                 <label className="eyebrow text-xs">Tautan Bukti (Wajib)</label>
                 {proofUrl && (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-[var(--c1)] border border-[var(--c2)] text-[var(--c4)]">
-                    Deteksi: {linkType}
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-medium border flex items-center gap-1.5 transition-all ${
+                    linkType === 'GitHub'
+                      ? 'bg-zinc-800 text-white border-zinc-700'
+                      : linkType === 'Dokumen Google'
+                      ? 'bg-blue-950/60 text-blue-300 border-blue-800/60'
+                      : linkType === 'Figma'
+                      ? 'bg-purple-950/60 text-purple-300 border-purple-800/60'
+                      : linkType === 'Drive'
+                      ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60'
+                      : 'bg-[var(--c1)] border-[var(--c2)] text-[var(--c4)]'
+                  }`}>
+                    <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+                    Chip: {linkType}
                   </span>
                 )}
               </div>
@@ -842,6 +861,24 @@ export function RoomTaskLifecycle({
                 error={proofError}
                 autoFocus
               />
+              <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] font-mono text-[var(--c3)]">
+                <span className="text-[10px] uppercase tracking-wider">Format terdeteksi:</span>
+                {(['GitHub', 'Dokumen Google', 'Figma', 'Drive'] as const).map((chip) => {
+                  const isMatch = linkType === chip && proofUrl.length > 0;
+                  return (
+                    <span
+                      key={chip}
+                      className={`px-2 py-0.5 rounded-full transition-all text-[10px] ${
+                        isMatch
+                          ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold'
+                          : 'bg-[var(--c1)] border border-[var(--c2)]/50 text-[var(--c3)]/70'
+                      }`}
+                    >
+                      {chip}
+                    </span>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="space-y-1.5">
@@ -1046,7 +1083,9 @@ export function RoomTaskLifecycle({
             ? 'Ambil tugas'
             : tasks.some((t) => t.status === 'review' && t.assignee_id !== currentUserId)
             ? 'Beri suara'
-            : 'Lihat tugas'
+            : tasks.length > 0
+            ? 'Lihat tugas'
+            : 'Belum ada tugas'
         }
         onPrimaryClick={() => {
           // Cari tugas open pertama atau review pertama

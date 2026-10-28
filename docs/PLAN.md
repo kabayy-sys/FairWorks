@@ -72,6 +72,7 @@ Keluaran: satu siklus penuh tugas selesai end-to-end.
 - [x] UI persetujuan: Setuju/Revisi, daftar suara transparan, catatan revisi
 - [x] Progres besar + bar anggota + feed realtime (langganan Supabase)
 - [x] Edge case UI: kirim ulang, suara hangus, anggota keluar, tanpa tenggat
+- [x] Optimasi ergonomi mobile thumb bar (Riski)
 
 ### T5 — Halaman Publik (Chello + Iwan) — butuh T1; dossier nyambung saat ada data done ✅ SELESAI
 Keluaran: pintu masuk, masuk, dan laporan dosen jadi.
