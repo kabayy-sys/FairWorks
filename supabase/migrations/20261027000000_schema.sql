@@ -25,7 +25,7 @@ begin
       nama = case when public.profiles.nama = '' then excluded.nama else public.profiles.nama end;
   return new;
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
@@ -138,7 +138,7 @@ returns boolean as $$
     select 1 from public.room_members
     where room_id = p_room_id and user_id = p_user_id
   );
-$$ language sql stable security definer search_path = public;
+$$ language sql stable security definer set search_path = public;
 
 create or replace function public.is_room_owner(p_room_id uuid, p_user_id uuid)
 returns boolean as $$
@@ -146,7 +146,7 @@ returns boolean as $$
     select 1 from public.rooms
     where id = p_room_id and owner_id = p_user_id
   );
-$$ language sql stable security definer search_path = public;
+$$ language sql stable security definer set search_path = public;
 
 -- Profiles policies
 create policy "Authenticated users can view profiles"
