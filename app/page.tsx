@@ -33,51 +33,12 @@ export default function Home() {
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [roomSubTab, setRoomSubTab] = useState<'papan' | 'kontrak'>('papan');
 
-  // State Dashboard Ruangan
-  const [dashboardRooms, setDashboardRooms] = useState<DashboardRoomItem[]>([
-    {
-      id: 'mock-room-1',
-      nama: 'Riset Pasar Digital',
-      kode: 'RPD-4K7',
-      role: 'ketua',
-      membersCount: 5,
-      totalPoints: 40,
-      donePoints: 16,
-      reviewPoints: 12,
-      doingPoints: 8,
-      openPoints: 4,
-      status: 'locked',
-    },
-    {
-      id: 'mock-room-2',
-      nama: 'Proyek Akhir Basis Data',
-      kode: 'PBD-9M2',
-      role: 'anggota',
-      membersCount: 4,
-      totalPoints: 50,
-      donePoints: 10,
-      reviewPoints: 0,
-      doingPoints: 15,
-      openPoints: 25,
-      status: 'draft',
-    },
-  ]);
-  const [contractLocked, setContractLocked] = useState(true);
+  // State Dashboard Ruangan (kosong sesuai permintaan)
+  const [dashboardRooms, setDashboardRooms] = useState<DashboardRoomItem[]>([]);
+  const [contractLocked, setContractLocked] = useState(false);
   const [contractDeadline, setContractDeadline] = useState<string | null>(null);
-  const [contractMembers, setContractMembers] = useState<ContractMember[]>([
-    { id: 'me', name: 'Ayu', role: 'ketua', contractVote: 'agree' },
-    { id: 'u2', name: 'Bima', role: 'anggota', contractVote: 'agree' },
-    { id: 'u3', name: 'Citra', role: 'anggota', contractVote: 'agree' },
-    { id: 'u4', name: 'Dimas', role: 'anggota', contractVote: 'agree' },
-    { id: 'u5', name: 'Esa', role: 'anggota', contractVote: 'agree' },
-  ]);
-  const [contractTasks, setContractTasks] = useState<ContractTaskItem[]>([
-    { id: 't1', judul: 'Tulis bab latar belakang', poin: 10, dueDate: '2026-10-25', status: 'done' },
-    { id: 't2', judul: 'Rangkum 10 jurnal relevan', poin: 15, dueDate: '2026-10-29', status: 'review' },
-    { id: 't3', judul: 'Kumpulkan 30 responden survei', poin: 20, dueDate: '2026-10-24', status: 'doing' },
-    { id: 't4', judul: 'Olah data di spreadsheet', poin: 15, dueDate: '2026-11-02', status: 'doing' },
-    { id: 't5', judul: 'Desain slide presentasi akhir', poin: 10, dueDate: '2026-11-05', status: 'open' },
-  ]);
+  const [contractMembers, setContractMembers] = useState<ContractMember[]>([]);
+  const [contractTasks, setContractTasks] = useState<ContractTaskItem[]>([]);
 
   const activeMood: BackgroundMood = currentView === 'story' ? 'landing' : (currentView as BackgroundMood);
 
