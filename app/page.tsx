@@ -33,6 +33,17 @@ const EXIT_MS = 220;
 const ENTER_MS = 520;
 const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
 
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
 type TransitionPhase = 'idle' | 'out' | 'in';
 
 function getPhaseStyle(phase: TransitionPhase, reduced: boolean): React.CSSProperties {
@@ -81,13 +92,26 @@ export default function Home() {
   const [myTaskCount, setMyTaskCount] = useState(0);
   const [myTotalPoints, setMyTotalPoints] = useState(0);
 
+  // Modal nama panggilan (onboarding pertama & rename via header)
+  const [nameModalOpen, setNameModalOpen] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+  const [savingName, setSavingName] = useState(false);
+
   // Muat data dashboard asli dari Supabase (profil, ruangan, tugas). Kosong = tampil kosong.
   const loadDashboard = useCallback(async () => {
     try {
       const res = await getUserDashboardData();
       if (!res) return;
 
-      setUserName(res.user.nama || res.user.email?.split('@')[0] || 'Pengguna');
+      const displayName = res.user.nama || res.user.email?.split('@')[0] || 'Pengguna';
+      setUserName(displayName);
+
+      // Nama belum pernah diisi (profil baru / kosong): ajak isi nama panggilan sekali
+      if (!res.user.nama) {
+        const meta = user?.user_metadata ?? {};
+        setNameInput(meta.full_name || meta.name || displayName);
+        setNameModalOpen(true);
+      }
 
       const rawRooms = (res.rooms ?? []) as Array<{
         room_id: string;
@@ -149,7 +173,7 @@ export default function Home() {
     } catch {
       // Biarkan dashboard tampil kosong kalau data gagal dimuat
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -175,6 +199,41 @@ export default function Home() {
 
     return () => subscription.unsubscribe();
   }, [loadDashboard]);
+
+  // Login Google: popup/redirect OAuth, balik ke origin lalu onAuthStateChange yang melanjutkan
+  const signInWithGoogle = async () => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+      if (error) throw error;
+    } catch (err: unknown) {
+      setToastMessage(err instanceof Error ? err.message : 'Gagal membuka login Google.');
+    }
+  };
+
+  // Simpan nama panggilan ke profiles (RLS: hanya baris sendiri)
+  const handleSaveName = async () => {
+    const nama = nameInput.trim();
+    if (!nama || !user) return;
+    setSavingName(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from('profiles').update({ nama }).eq('id', user.id);
+      if (error) throw error;
+      setUserName(nama);
+      setNameModalOpen(false);
+      setToastMessage(`Siap, dipanggil ${nama} mulai sekarang.`);
+    } catch (err: unknown) {
+      setToastMessage(err instanceof Error ? err.message : 'Gagal menyimpan nama.');
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   // State Ruangan Aktif Terpilih
   const [activeRoom, setActiveRoom] = useState<{ id: string; nama: string; kode: string } | null>(null);
@@ -327,15 +386,27 @@ export default function Home() {
               })}
             </div>
 
-            <button
-              onClick={async () => {
-                const supabase = createClient();
-                await supabase.auth.signOut();
-              }}
-              className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c1)] text-[var(--c3)] hover:text-red-400 transition-all cursor-pointer border border-[var(--c2)]"
-            >
-              Keluar ({userName})
-            </button>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  setNameInput(userName);
+                  setNameModalOpen(true);
+                }}
+                title="Ubah nama panggilan"
+                className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c1)] text-[var(--c4)] hover:bg-[var(--c2)] transition-all duration-300 cursor-pointer border border-[var(--c2)]"
+              >
+                {userName}
+              </button>
+              <button
+                onClick={async () => {
+                  const supabase = createClient();
+                  await supabase.auth.signOut();
+                }}
+                className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c1)] text-[var(--c3)] hover:text-red-400 transition-all cursor-pointer border border-[var(--c2)]"
+              >
+                Keluar
+              </button>
+            </div>
           </div>
         )}
       </header>
@@ -399,39 +470,57 @@ export default function Home() {
                 </div>
 
                 {!authSent ? (
-                  <form
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const email = emailInput.trim();
-                      if (!email) return;
-                      try {
-                        const supabase = createClient();
-                        const { error } = await supabase.auth.signInWithOtp({
-                          email,
-                          options: {
-                            emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}` : undefined,
-                          },
-                        });
-                        if (error) throw error;
-                        setAuthSent(true);
-                      } catch (err: unknown) {
-                        setToastMessage(err instanceof Error ? err.message : 'Gagal mengirim tautan magic link.');
-                      }
-                    }}
-                    className="fw-sub-enter space-y-4 text-left pt-2"
-                  >
-                    <Field
-                      label="Email"
-                      type="email"
-                      placeholder="kamu@kampus.id"
-                      value={emailInput}
-                      onChange={(e) => setEmailInput(e.target.value)}
-                      required
-                    />
-                    <Btn type="submit" className="w-full">
-                      Kirim tautan masuk
-                    </Btn>
-                  </form>
+                  <div className="space-y-4 pt-2">
+                    <button
+                      onClick={signInWithGoogle}
+                      className="fw-sub-enter w-full inline-flex items-center justify-center gap-3 min-h-[48px] px-6 rounded-full bg-white text-[var(--c4)] text-[15px] font-medium border border-[var(--c2)] hover:bg-[var(--c1)] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none"
+                      style={{ animationDelay: '60ms' }}
+                    >
+                      <GoogleIcon />
+                      Lanjutkan dengan Google
+                    </button>
+
+                    <div className="flex items-center gap-3 fw-sub-enter" style={{ animationDelay: '140ms' }}>
+                      <div className="h-px flex-1 bg-[var(--c2)]" />
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--c3)]">atau</span>
+                      <div className="h-px flex-1 bg-[var(--c2)]" />
+                    </div>
+
+                    <form
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        const email = emailInput.trim();
+                        if (!email) return;
+                        try {
+                          const supabase = createClient();
+                          const { error } = await supabase.auth.signInWithOtp({
+                            email,
+                            options: {
+                              emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}` : undefined,
+                            },
+                          });
+                          if (error) throw error;
+                          setAuthSent(true);
+                        } catch (err: unknown) {
+                          setToastMessage(err instanceof Error ? err.message : 'Gagal mengirim tautan magic link.');
+                        }
+                      }}
+                      className="fw-sub-enter space-y-3 text-left"
+                      style={{ animationDelay: '220ms' }}
+                    >
+                      <Field
+                        label="Masuk via tautan email"
+                        type="email"
+                        placeholder="kamu@kampus.id"
+                        value={emailInput}
+                        onChange={(e) => setEmailInput(e.target.value)}
+                        required
+                      />
+                      <Btn type="submit" variant="outline" className="w-full text-xs min-h-[40px]">
+                        Kirim tautan masuk
+                      </Btn>
+                    </form>
+                  </div>
                 ) : (
                   <div className="fw-sub-enter space-y-3 py-3 bg-[var(--c1)] rounded-[14px] p-5 border border-[var(--c2)] text-left">
                     <p className="text-sm text-[var(--c4)]">
@@ -672,6 +761,44 @@ export default function Home() {
           }
         }}
       />
+
+      {/* Modal Nama Panggilan — onboarding pertama & rename via header */}
+      <Modal isOpen={nameModalOpen} onClose={() => setNameModalOpen(false)} title="Nama Panggilan">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveName();
+          }}
+          className="space-y-4"
+        >
+          <p className="text-xs text-[var(--c3)] leading-relaxed">
+            Nama ini yang tampil di ruangan tim, kontrak, dan laporan yang dibaca dosen.
+          </p>
+          <Field
+            label="Panggil kamu apa?"
+            type="text"
+            placeholder="Contoh: Raken"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            maxLength={40}
+            required
+            autoFocus
+          />
+          <div className="flex gap-2 justify-end pt-1">
+            <Btn
+              type="button"
+              variant="ghost"
+              onClick={() => setNameModalOpen(false)}
+              className="min-h-[40px] text-xs px-4"
+            >
+              Nanti saja
+            </Btn>
+            <Btn type="submit" loading={savingName} className="min-h-[40px] text-xs px-5">
+              Simpan
+            </Btn>
+          </div>
+        </form>
+      </Modal>
 
       {/* Global Toast */}
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
