@@ -23,7 +23,7 @@ export interface ContractMember {
 }
 
 interface ContractFlowProps {
-  roomId: string;
+  roomId?: string;
   roomName: string;
   roomCode: string;
   isOwner: boolean;
@@ -41,6 +41,7 @@ interface ContractFlowProps {
   onVotePostLockTask?: (taskId: string, agree: boolean) => Promise<void> | void;
   onAutoLockTrigger?: () => Promise<void> | void;
   onJoinRoom?: (code: string) => Promise<void> | void;
+  onProceedToActiveRoom?: () => void;
 }
 
 export function ContractFlow({
@@ -60,12 +61,14 @@ export function ContractFlow({
   onVoteContract,
   onVotePostLockTask,
   onAutoLockTrigger,
+  onProceedToActiveRoom,
 }: Omit<ContractFlowProps, 'roomId'>) {
   // Modal states
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<ContractTaskItem | null>(null);
   const [voteModalOpen, setVoteModalOpen] = useState(false);
   const [rekapModalOpen, setRekapModalOpen] = useState(false);
+  const [showInkStamp, setShowInkStamp] = useState(false);
 
   // Form states (Task)
   const defaultDueDate = () => {
@@ -187,6 +190,18 @@ export function ContractFlow({
       await onVoteContract(voteAgree, voteAgree ? undefined : voteNote.trim());
     }
     setVoteModalOpen(false);
+
+    // Jika vote setuju dan membuat semua anggota setuju -> pemicu ink stamp
+    if (voteAgree) {
+      const otherAgreed = members.filter((m) => m.id !== currentUserId && m.contractVote === 'agree').length;
+      if (otherAgreed + 1 === members.length) {
+        setShowInkStamp(true);
+        setTimeout(() => {
+          setShowInkStamp(false);
+          if (onProceedToActiveRoom) onProceedToActiveRoom();
+        }, 2200);
+      }
+    }
   };
 
   const totalPoints = tasks.reduce((sum, t) => sum + (t.postLockPending ? 0 : t.poin), 0);
@@ -197,6 +212,29 @@ export function ContractFlow({
   return (
     <div className="space-y-4">
       {/* 1. BANNER STATUS KONTRAK & COUNTDOWN 24 JAM */}
+      {showInkStamp && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[var(--c0)]/80 backdrop-blur-sm pointer-events-none animate-in fade-in duration-300">
+          <div className="relative flex flex-col items-center justify-center">
+            {/* Ink-Stamp SVG Filter & Seal ring */}
+            <svg width="0" height="0" className="absolute">
+              <filter id="ink-filter">
+                <feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" result="noise" />
+                <feDisplacementMap in="SourceGraphic" in2="noise" scale="3" />
+              </filter>
+            </svg>
+            <div
+              style={{ filter: 'url(#ink-filter)' }}
+              className="w-48 h-48 sm:w-56 sm:h-56 rounded-full border-4 sm:border-8 border-double border-[var(--c4)] flex flex-col items-center justify-center text-center text-[var(--c4)] p-4 transform -rotate-12 animate-in zoom-in-150 duration-500 shadow-2xl bg-[var(--c0)]/90"
+            >
+              <span className="font-mono text-xs tracking-widest uppercase opacity-75">FAIRWORKS</span>
+              <span className="text-2xl sm:text-3xl font-extrabold tracking-wider my-1 uppercase">TERKUNCI</span>
+              <span className="font-mono text-[10px] tracking-widest uppercase opacity-60">VERIFIED & LOCKED</span>
+            </div>
+            <p className="mt-4 text-xs font-mono text-[var(--c4)] animate-pulse">Menyiapkan Papan Tugas Aktif…</p>
+          </div>
+        </div>
+      )}
+
       {isLocked ? (
         <div className="p-3.5 bg-[var(--c1)] border border-[var(--c2)] rounded-[14px] flex items-center justify-between text-xs font-mono">
           <div className="flex items-center gap-2 text-[var(--c4)]">

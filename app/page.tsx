@@ -249,7 +249,13 @@ export default function Home() {
                 status: 'draft',
               };
               setDashboardRooms((prev) => [newRoom, ...prev]);
-              setToastMessage(`Ruangan "${nama}" berhasil dibuat dengan kode ${code}!`);
+              // Sesuai FAIRWORKS_WORKFLOW_REVISION Langkah B:
+              // Langsung arahkan (redirect) pengguna masuk ke Form Tugas Kontrak (Pre-lock Phase)
+              setContractLocked(false);
+              setContractDeadline(null);
+              setRoomSubTab('kontrak');
+              setCurrentView('room');
+              setToastMessage(`Ruangan "${nama}" (${code}) dibuat! Silakan susun tugas kontrak.`);
             }}
             onOpenJoinModal={() => setJoinModalOpen(true)}
           />
@@ -369,6 +375,11 @@ export default function Home() {
                     setContractLocked(true);
                     setContractDeadline(null);
                     setToastMessage('Waktu 24 jam habis: Kontrak terkunci otomatis!');
+                  }}
+                  onProceedToActiveRoom={() => {
+                    setContractLocked(true);
+                    setRoomSubTab('papan');
+                    setToastMessage('Kontrak sah & terkunci! Membuka Papan Tugas Aktif.');
                   }}
                 />
               </div>
@@ -583,7 +594,11 @@ export default function Home() {
                 status: 'draft',
               };
               setDashboardRooms((prev) => [newRoom, ...prev]);
-              setToastMessage(`Ruangan baru dibuat (${code})!`);
+              setContractLocked(false);
+              setContractDeadline(null);
+              setRoomSubTab('kontrak');
+              setCurrentView('room');
+              setToastMessage(`Ruangan baru dibuat (${code})! Silakan susun tugas.`);
             }
           }}
           secondaryText={currentView === 'dashboard' ? 'Masuk kode' : undefined}

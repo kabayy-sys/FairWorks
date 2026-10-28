@@ -110,20 +110,18 @@ export function DashboardView({
           </button>
         </div>
 
-        {rooms.length === 0 ? (
+        {rooms.length === 0 && (
           <div className="p-8 border border-dashed border-[var(--c2)] rounded-[18px] text-center space-y-3 bg-[var(--c0)]/40">
             <p className="text-sm text-[var(--c3)]">Kamu belum bergabung dalam ruangan kerja kelompok.</p>
             <div className="flex justify-center gap-2 pt-1">
               <Btn onClick={() => setCreateModalOpen(true)} className="min-h-[38px] text-xs px-4">
                 Buat Ruangan
               </Btn>
-              <Btn variant="outline" onClick={onOpenJoinModal} className="min-h-[38px] text-xs px-4">
-                Masuk Kode
-              </Btn>
             </div>
           </div>
-        ) : (
-          rooms.map((room) => {
+        )}
+
+        {rooms.map((room) => {
             const sumPoints = room.totalPoints || 1;
             const pctDone = Math.round((room.donePoints / sumPoints) * 100);
 
@@ -172,8 +170,7 @@ export function DashboardView({
                 </div>
               </Panel>
             );
-          })
-        )}
+          })}
 
         {/* Baris dashed masuk kode (Sesuai wireframe v2 §5.3) */}
         <div
