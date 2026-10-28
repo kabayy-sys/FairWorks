@@ -79,7 +79,132 @@ export function DossierReport({
   initialData?: ReportData | null;
   onBack?: () => void;
 }) {
-  const [data, setData] = useState<ReportData | null>(initialData || null);
+  const [data, setData] = useState<ReportData | null>(() => {
+    if (initialData) return initialData;
+    if (!token) {
+      // Jika diakses di halaman demo utama (tanpa token URL /l/{token}), pakai demo data agar tidak error
+      return {
+        room: {
+          id: 'demo-room-1',
+          nama: 'Riset Pasar Digital',
+          kode: 'RPD-4K7',
+          locked_at: '2026-10-24T10:00:00Z',
+          created_at: '2026-10-23T08:30:00Z',
+          total_points: 40,
+          done_points: 25,
+        },
+        members: [
+          { user_id: 'm1', nama: 'Ayu Pratiwi', peran: 'ketua', points_done: 10 },
+          { user_id: 'm2', nama: 'Bima Sakti', peran: 'anggota', points_done: 10 },
+          { user_id: 'm3', nama: 'Citra Kirana', peran: 'anggota', points_done: 5 },
+          { user_id: 'm4', nama: 'Dimas Anggara', peran: 'anggota', points_done: 0 },
+          { user_id: 'm5', nama: 'Esa Prakasa', peran: 'anggota', points_done: 0 },
+        ],
+        tasks: [
+          {
+            id: 'task-1',
+            judul: 'Tulis bab latar belakang & rumusan masalah',
+            deskripsi: 'Bab 1 lengkap beserta studi literatur pendahuluan',
+            poin: 10,
+            status: 'done',
+            assignee_name: 'Ayu Pratiwi',
+            submit_link: 'https://docs.google.com/document/d/1demo-latar-belakang',
+            submit_note: 'Dokumen Bab 1 selesai dan telah direvisi sesuai catatan dosen.',
+            submit_at: '2026-10-25T14:20:00Z',
+          },
+          {
+            id: 'task-2',
+            judul: 'Rangkum 10 jurnal relevan & sitasi IEEE',
+            deskripsi: 'Ekstraksi metodologi riset 5 tahun terakhir',
+            poin: 10,
+            status: 'done',
+            assignee_name: 'Bima Sakti',
+            submit_link: 'https://github.com/fairworks/riset-pasar-digital',
+            submit_note: 'Repositori berisi rangkuman markdown dan berkas bibtex sitasi.',
+            submit_at: '2026-10-26T09:15:00Z',
+          },
+          {
+            id: 'task-3',
+            judul: 'Susun instrumen kuesioner survei pengguna',
+            deskripsi: '15 butir pertanyaan skala Likert 1-5',
+            poin: 5,
+            status: 'done',
+            assignee_name: 'Citra Kirana',
+            submit_link: 'https://drive.google.com/drive/folders/1demo-kuesioner',
+            submit_note: 'Kuesioner sudah divalidasi oleh 3 responden awal.',
+            submit_at: '2026-10-26T16:40:00Z',
+          },
+          {
+            id: 'task-4',
+            judul: 'Sebar survei & himpun 50 responden target',
+            deskripsi: 'Sebar di komunitas kampus dan sosial media',
+            poin: 10,
+            status: 'review',
+            assignee_name: 'Dimas Anggara',
+            submit_link: 'https://docs.google.com/spreadsheets/d/1demo-responden',
+            submit_note: 'Sudah terkumpul 52 respons bersih siap olah.',
+            submit_at: '2026-10-27T08:00:00Z',
+          },
+          {
+            id: 'task-5',
+            judul: 'Desain slide presentasi hasil temuan akhir',
+            deskripsi: '12 slide minimalis monokrom format 16:9',
+            poin: 5,
+            status: 'doing',
+            assignee_name: 'Esa Prakasa',
+            submit_link: 'https://figma.com/file/demo-slide-presentasi',
+            submit_note: null,
+            submit_at: null,
+          },
+        ],
+        timeline: [
+          {
+            id: 'log-1',
+            aksi: 'Tugas "Susun instrumen kuesioner" disetujui mayoritas tim (3 suara)',
+            actor_name: 'Ayu Pratiwi',
+            created_at: '2026-10-26T17:10:00Z',
+          },
+          {
+            id: 'log-2',
+            aksi: 'Citra Kirana mengirim bukti pengumpulan instrumen kuesioner',
+            actor_name: 'Citra Kirana',
+            created_at: '2026-10-26T16:40:00Z',
+          },
+          {
+            id: 'log-3',
+            aksi: 'Tugas "Rangkum 10 jurnal relevan" disetujui mayoritas tim (3 suara)',
+            actor_name: 'Citra Kirana',
+            created_at: '2026-10-26T11:00:00Z',
+          },
+          {
+            id: 'log-4',
+            aksi: 'Bima Sakti mengirim repositori bukti pengerjaan rangkuman jurnal',
+            actor_name: 'Bima Sakti',
+            created_at: '2026-10-26T09:15:00Z',
+          },
+          {
+            id: 'log-5',
+            aksi: 'Tugas "Tulis bab latar belakang" disetujui mayoritas tim (4 suara)',
+            actor_name: 'Bima Sakti',
+            created_at: '2026-10-25T16:30:00Z',
+          },
+          {
+            id: 'log-6',
+            aksi: 'Ayu Pratiwi mengirim tautan bukti naskah Bab 1',
+            actor_name: 'Ayu Pratiwi',
+            created_at: '2026-10-25T14:20:00Z',
+          },
+          {
+            id: 'log-7',
+            aksi: 'Kontrak tugas disetujui seluruh anggota dan terkunci resmi',
+            actor_name: 'Sistem FairWorks',
+            created_at: '2026-10-24T10:00:00Z',
+          },
+        ],
+      };
+    }
+    return null;
+  });
   const [loading, setLoading] = useState<boolean>(!initialData && !!token);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);

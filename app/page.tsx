@@ -10,8 +10,6 @@ import {
   AvatarStack,
   Modal,
   Toast,
-  Odometer,
-  TabsPill,
   Field,
   Drawer,
 } from './components/DesignSystem';
@@ -24,13 +22,12 @@ import { DossierReport } from './components/DossierReport';
 import { createClient } from '@/lib/supabase/client';
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState<BackgroundMood | 'story'>('landing');
+  const [currentView, setCurrentView] = useState<BackgroundMood>('landing');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [authSent, setAuthSent] = useState(false);
-  const [storyModalOpen, setStoryModalOpen] = useState(false);
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [roomSubTab, setRoomSubTab] = useState<'papan' | 'kontrak'>('papan');
 
@@ -80,7 +77,7 @@ export default function Home() {
     { id: 't5', judul: 'Desain slide presentasi akhir', poin: 10, dueDate: '2026-11-05', status: 'open' },
   ]);
 
-  const activeMood: BackgroundMood = currentView === 'story' ? 'landing' : (currentView as BackgroundMood);
+  const activeMood: BackgroundMood = currentView;
 
   return (
     <main className="min-h-screen relative overflow-x-hidden pb-28 text-[var(--c4)] bg-[var(--c0)] selection:bg-[var(--c4)] selection:text-[var(--c0)]">
@@ -95,7 +92,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-          {(['landing', 'auth', 'dashboard', 'room', 'laporan', 'story'] as const).map((v) => {
+          {(['landing', 'auth', 'dashboard', 'room', 'laporan'] as const).map((v) => {
             const isActive = currentView === v;
             return (
               <button
@@ -114,7 +111,7 @@ export default function Home() {
 
       {/* Main View Container */}
       <div
-        className={`relative z-10 mx-auto px-4 sm:px-6 pt-8 sm:pt-12 transition-all duration-700 ease-[var(--ease)] ${
+        className={`relative z-10 mx-auto px-4 sm:px-6 pt-8 sm:pt-12 transition-all duration-500 ease-[var(--ease)] ${
           currentView === 'room' || currentView === 'laporan' ? 'max-w-[760px]' : 'max-w-5xl'
         }`}
       >
@@ -382,58 +379,12 @@ export default function Home() {
             Kepala laporan + Pie chart monokrom + Timeline + Tabel bukti
            ============================================================== */}
         {currentView === 'laporan' && (
-          <DossierReport onBack={() => setCurrentView('dashboard')} />
-        )}
-
-        {/* ==============================================================
-            BONUS: STORY VIEW — Showcase 8 Komponen v2
-           ============================================================== */}
-        {currentView === 'story' && (
-          <div className="space-y-8 animate-in fade-in duration-700">
-            <div className="space-y-1">
-              <span className="eyebrow text-xs">Design System v2 Showcase</span>
-              <h2 className="text-2xl font-semibold">8 Komponen Inti + Drawer</h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Panel className="space-y-3">
-                <h4 className="text-sm font-semibold">1 & 2. Btn & Kinetic Title</h4>
-                <KineticTitle text="Judul Animasi Halus" className="text-lg font-semibold" tag="h3" />
-                <div className="flex gap-2">
-                  <Btn onClick={() => setToastMessage('Tombol ditekan!')}>Solid</Btn>
-                  <Btn variant="outline" onClick={() => setStoryModalOpen(true)}>Buka Modal</Btn>
-                </div>
-              </Panel>
-
-              <Panel className="space-y-3">
-                <h4 className="text-sm font-semibold">3 & 4. Track (8px) & TabsPill</h4>
-                <TabsPill tabs={['Semua', 'Bisa diambil']} activeTab="Semua" onChange={() => {}} />
-                <Track done={50} review={25} doing={15} open={10} />
-              </Panel>
-
-              <Panel className="space-y-3">
-                <h4 className="text-sm font-semibold">5 & 8. AvatarStack & Odometer</h4>
-                <AvatarStack
-                  members={[
-                    { name: 'Ayu', isOwner: true },
-                    { name: 'Bima' },
-                    { name: 'Citra' },
-                  ]}
-                />
-                <p className="text-xs text-[var(--c3)] font-mono">
-                  Progres: <Odometer value="82.4%" />
-                </p>
-              </Panel>
-
-              <Panel className="space-y-3">
-                <h4 className="text-sm font-semibold">Drawer & TaskRow</h4>
-                <Btn variant="outline" onClick={() => setIsDrawerOpen(true)} className="text-xs">
-                  Buka Drawer Anggota
-                </Btn>
-              </Panel>
-            </div>
+          <div className="transition-all duration-500 ease-[var(--ease)]">
+            <DossierReport onBack={() => setCurrentView('dashboard')} />
           </div>
         )}
+
+      {/* Story View section removed */}
       </div>
 
       {/* Join Room Modal (T3: Join ruangan via kode) */}
@@ -455,18 +406,6 @@ export default function Home() {
           <Field label="Kode Ruangan" placeholder="Contoh: RPD-4K7" />
           <Btn onClick={() => { setIsModalOpen(false); setToastMessage('Berhasil masuk ruangan!'); }} className="w-full">
             Gabung
-          </Btn>
-        </div>
-      </Modal>
-
-      {/* Story Modal */}
-      <Modal isOpen={storyModalOpen} onClose={() => setStoryModalOpen(false)} title="Modal Keputusan">
-        <div className="space-y-4">
-          <p className="text-xs text-[var(--c3)] leading-relaxed">
-            Satu layar, satu keputusan. Modal aksi selalu satu keputusan fokus.
-          </p>
-          <Btn onClick={() => { setStoryModalOpen(false); setToastMessage('Aksi tersimpan'); }} className="w-full">
-            Konfirmasi
           </Btn>
         </div>
       </Modal>
