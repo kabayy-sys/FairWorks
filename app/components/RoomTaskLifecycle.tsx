@@ -68,87 +68,10 @@ export function RoomTaskLifecycle({
   currentUserName = 'Riski',
   onNavigateHome,
 }: RoomTaskLifecycleProps) {
-  // Demo initial members
-  const [members, setMembers] = useState<MemberItem[]>([
-    { id: 'user-ayu', name: 'Ayu', role: 'Ketua', points: 10, isOwner: true },
-    { id: 'user-bima', name: 'Bima', role: 'Anggota', points: 0 },
-    { id: 'user-dimas', name: 'Dimas', role: 'Anggota', points: 0 },
-    { id: 'user-esa', name: 'Esa', role: 'Anggota', points: 0 },
-    { id: 'user-riski', name: 'Riski', role: 'Anggota', points: 0 },
-  ]);
-
-  // Demo initial tasks matching PRD & DESIGN specs
-  const [tasks, setTasks] = useState<TaskItem[]>([
-    {
-      id: 'task-1',
-      judul: 'Tulis bab latar belakang',
-      deskripsi: 'Menjelaskan urgensi masalah free-rider di perkuliahan dan metodologi survei.',
-      poin: 10,
-      status: 'done',
-      assignee_id: 'user-ayu',
-      assignee_name: 'Ayu',
-      due_date: '2026-10-25T23:59:59Z',
-      submit_link: 'https://docs.google.com/document/d/1example-latar-belakang',
-      submit_note: 'Sudah mencakup 5 rujukan awal.',
-      votes: [
-        { voter_id: 'user-bima', voter_name: 'Bima', vote: 'ok' },
-        { voter_id: 'user-riski', voter_name: 'Riski', vote: 'ok' },
-      ],
-    },
-    {
-      id: 'task-2',
-      judul: 'Rangkum 10 jurnal relevan',
-      deskripsi: 'Cari jurnal terindeks Scopus/Sinta tahun 2021-2026 tentang efektivitas kerja kelompok.',
-      poin: 15,
-      status: 'review',
-      assignee_id: 'user-bima',
-      assignee_name: 'Bima',
-      due_date: '2026-10-29T23:59:59Z',
-      submit_link: 'https://docs.google.com/document/d/1example-rangkuman-jurnal',
-      submit_note: 'Telah dirangkum dalam tabel matriks perbandingan.',
-      vote_round: 1,
-      votes: [{ voter_id: 'user-ayu', voter_name: 'Ayu', vote: 'ok' }],
-    },
-    {
-      id: 'task-3',
-      judul: 'Kumpulkan 30 responden survei',
-      deskripsi: 'Sebar Google Form ke mahasiswa angkatan 2023-2025 min 30 jawaban terverifikasi.',
-      poin: 20,
-      status: 'doing',
-      assignee_id: 'user-dimas',
-      assignee_name: 'Dimas',
-      due_date: '2026-10-24T23:59:59Z', // past date -> overdue
-      is_overdue: true,
-    },
-    {
-      id: 'task-4',
-      judul: 'Olah data di spreadsheet',
-      deskripsi: 'Bersihkan data mentah survei, hitung persentase dan buat grafik batang ringkas.',
-      poin: 15,
-      status: 'doing',
-      assignee_id: 'user-esa',
-      assignee_name: 'Esa',
-      due_date: '2026-11-02T23:59:59Z',
-    },
-    {
-      id: 'task-5',
-      judul: 'Desain slide presentasi akhir',
-      deskripsi: 'Buat 10-12 slide pitch deck menggunakan format desain monokrom.',
-      poin: 10,
-      status: 'open',
-      assignee_id: null,
-      assignee_name: null,
-      due_date: '2026-11-05T23:59:59Z',
-    },
-  ]);
-
-  // Activity Feed
-  const [activities, setActivities] = useState<ActivityItem[]>([
-    { id: 'act-1', who: 'Bima', actionText: 'mengirim hasil Rangkum 10 jurnal relevan', timeAgo: '1 jam lalu' },
-    { id: 'act-2', who: 'Ayu', actionText: 'menyetujui tugas Tulis bab latar belakang (+10 poin)', timeAgo: '3 jam lalu' },
-    { id: 'act-3', who: 'Esa', actionText: 'mengambil tugas Olah data di spreadsheet', timeAgo: 'Kemarin' },
-    { id: 'act-4', who: 'Dimas', actionText: 'mengambil tugas Kumpulkan 30 responden survei', timeAgo: '2 hari lalu' },
-  ]);
+  // Initial state kosong sesuai permintaan
+  const [members, setMembers] = useState<MemberItem[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [activities, setActivities] = useState<ActivityItem[]>([]);
 
   // UI States
   const [activeTab, setActiveTab] = useState<'Semua' | 'Bisa diambil'>('Semua');
