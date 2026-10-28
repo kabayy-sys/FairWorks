@@ -10,8 +10,6 @@ import {
   AvatarStack,
   Modal,
   Toast,
-  Odometer,
-  TabsPill,
   Field,
   Drawer,
 } from './components/DesignSystem';
@@ -23,13 +21,12 @@ import { DashboardView, DashboardRoomItem } from './components/DashboardView';
 import { createClient } from '@/lib/supabase/client';
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState<BackgroundMood | 'story'>('landing');
+  const [currentView, setCurrentView] = useState<BackgroundMood>('landing');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
   const [authSent, setAuthSent] = useState(false);
-  const [storyModalOpen, setStoryModalOpen] = useState(false);
   const [joinModalOpen, setJoinModalOpen] = useState(false);
   const [roomSubTab, setRoomSubTab] = useState<'papan' | 'kontrak'>('papan');
 
@@ -79,7 +76,7 @@ export default function Home() {
     { id: 't5', judul: 'Desain slide presentasi akhir', poin: 10, dueDate: '2026-11-05', status: 'open' },
   ]);
 
-  const activeMood: BackgroundMood = currentView === 'story' ? 'landing' : (currentView as BackgroundMood);
+  const activeMood: BackgroundMood = currentView;
 
   return (
     <main className="min-h-screen relative overflow-x-hidden pb-28 text-[var(--c4)] bg-[var(--c0)] selection:bg-[var(--c4)] selection:text-[var(--c0)]">
@@ -94,7 +91,7 @@ export default function Home() {
         </div>
 
         <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-          {(['landing', 'auth', 'dashboard', 'room', 'laporan', 'story'] as const).map((v) => {
+          {(['landing', 'auth', 'dashboard', 'room', 'laporan'] as const).map((v) => {
             const isActive = currentView === v;
             return (
               <button
@@ -431,52 +428,56 @@ export default function Home() {
         )}
 
         {/* ==============================================================
-            BONUS: STORY VIEW — Showcase 8 Komponen v2
+            VIEW 5: LAPORAN PUBLIK — 1 Kolom Ringkas (DESIGN.md v2 §5.5)
            ============================================================== */}
-        {currentView === 'story' && (
-          <div className="space-y-8 animate-in fade-in duration-700">
-            <div className="space-y-1">
-              <span className="eyebrow text-xs">Design System v2 Showcase</span>
-              <h2 className="text-2xl font-semibold">8 Komponen Inti + Drawer</h2>
-            </div>
+        {currentView === 'laporan' && (
+          <div className="space-y-6 animate-in fade-in duration-700">
+            <Panel className="space-y-5 border border-[var(--c2)] p-6">
+              <div className="space-y-1.5 border-b border-[var(--c1)] pb-4">
+                <span className="eyebrow text-xs">Laporan Kontribusi</span>
+                <h2 className="text-2xl font-semibold">Riset Pasar Digital</h2>
+                <p className="text-xs font-mono text-[var(--c3)]">RPD-4K7 · 5 orang · 40 poin · Terkunci 30 Okt</p>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Panel className="space-y-3">
-                <h4 className="text-sm font-semibold">1 & 2. Btn & Kinetic Title</h4>
-                <KineticTitle text="Judul Animasi Halus" className="text-lg font-semibold" tag="h3" />
-                <div className="flex gap-2">
-                  <Btn onClick={() => setToastMessage('Tombol ditekan!')}>Solid</Btn>
-                  <Btn variant="outline" onClick={() => setStoryModalOpen(true)}>Buka Modal</Btn>
-                </div>
-              </Panel>
-
-              <Panel className="space-y-3">
-                <h4 className="text-sm font-semibold">3 & 4. Track (8px) & TabsPill</h4>
-                <TabsPill tabs={['Semua', 'Bisa diambil']} activeTab="Semua" onChange={() => {}} />
-                <Track done={50} review={25} doing={15} open={10} />
-              </Panel>
-
-              <Panel className="space-y-3">
-                <h4 className="text-sm font-semibold">5 & 8. AvatarStack & Odometer</h4>
-                <AvatarStack
-                  members={[
-                    { name: 'Ayu', isOwner: true },
-                    { name: 'Bima' },
-                    { name: 'Citra' },
-                  ]}
-                />
-                <p className="text-xs text-[var(--c3)] font-mono">
-                  Progres: <Odometer value="82.4%" />
+              {/* Pie / Strip Kontribusi ringkas */}
+              <div className="space-y-2">
+                <span className="eyebrow text-[11px]">Kontribusi Anggota</span>
+                <p className="text-xs text-[var(--c3)] font-mono leading-relaxed">
+                  Ayu 25% · Bima 30% · Citra 20% · Dimas 15% · Esa 10%
                 </p>
-              </Panel>
+                <Track done={25} review={30} doing={20} open={25} />
+              </div>
 
-              <Panel className="space-y-3">
-                <h4 className="text-sm font-semibold">Drawer & TaskRow</h4>
-                <Btn variant="outline" onClick={() => setIsDrawerOpen(true)} className="text-xs">
-                  Buka Drawer Anggota
-                </Btn>
-              </Panel>
-            </div>
+              {/* Timeline ringkas */}
+              <div className="space-y-2 pt-2 border-t border-[var(--c1)]">
+                <span className="eyebrow text-[11px]">Linimasa</span>
+                <div className="space-y-1.5 text-xs text-[var(--c3)] font-mono">
+                  <div>30 Okt ● Kontrak terkunci</div>
+                  <div>02 Nov ● Ayu ambil bab latar belakang</div>
+                  <div>04 Nov ● Bima kirim rangkuman jurnal</div>
+                  <div>05 Nov ● 3 orang menyetujui tugas</div>
+                </div>
+              </div>
+
+              {/* Tabel / Baris Bukti Selesai */}
+              <div className="space-y-2 pt-2 border-t border-[var(--c1)]">
+                <span className="eyebrow text-[11px]">Hasil & Bukti</span>
+                <div className="space-y-1.5 text-xs">
+                  <div className="p-3 bg-[var(--c1)] rounded-[12px] flex justify-between items-center">
+                    <span>✓ Tulis bab latar belakang (10p) · Ayu</span>
+                    <span className="font-mono text-[var(--c3)]">[Dokumen]</span>
+                  </div>
+                  <div className="p-3 bg-[var(--c1)] rounded-[12px] flex justify-between items-center">
+                    <span>✓ Rangkum 10 jurnal (15p) · Bima</span>
+                    <span className="font-mono text-[var(--c3)]">[GitHub]</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 text-center text-[11px] font-mono text-[var(--c3)]">
+                Dibuat dengan FairWorks · Tanpa Login
+              </div>
+            </Panel>
           </div>
         )}
       </div>
@@ -504,17 +505,7 @@ export default function Home() {
         </div>
       </Modal>
 
-      {/* Story Modal */}
-      <Modal isOpen={storyModalOpen} onClose={() => setStoryModalOpen(false)} title="Modal Keputusan">
-        <div className="space-y-4">
-          <p className="text-xs text-[var(--c3)] leading-relaxed">
-            Satu layar, satu keputusan. Modal aksi selalu satu keputusan fokus.
-          </p>
-          <Btn onClick={() => { setStoryModalOpen(false); setToastMessage('Aksi tersimpan'); }} className="w-full">
-            Konfirmasi
-          </Btn>
-        </div>
-      </Modal>
+      {/* Story Modal removed */}
 
       {/* Drawer Anggota & Aktivitas (DESIGN.md v2 §1.5 #2 & §5.4) */}
       <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title="Anggota & Aktivitas">
