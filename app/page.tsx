@@ -21,6 +21,7 @@ import { CreateRoomModal } from './components/CreateRoomModal';
 import { DashboardView, DashboardRoomItem } from './components/DashboardView';
 import { DossierReport } from './components/DossierReport';
 import { createClient } from '@/lib/supabase/client';
+import { getUserDashboardData } from '@/lib/api/fairworks';
 
 /* ------------------------------------------------------------------
    Transisi antar view (morph + fade)
@@ -73,6 +74,35 @@ export default function Home() {
   const [displayedView, setDisplayedView] = useState<BackgroundMood>('landing');
   const [phase, setPhase] = useState<TransitionPhase>('idle');
   const [reducedMotion, setReducedMotion] = useState(false);
+
+  // Auth State & User Session
+  const [user, setUser] = useState<any>(null);
+  const [userName, setUserName] = useState<string>('Pengguna');
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setUser(session.user);
+        setUserName(session.user.email?.split('@')[0] || 'Pengguna');
+        getUserDashboardData().then((res) => {
+          if (res && res.rooms) {
+            // rooms loaded
+          }
+        }).catch(() => {});
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        setUserName(session.user.email?.split('@')[0] || 'Pengguna');
+        setCurrentView('dashboard');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // State Ruangan Aktif Terpilih
   const [activeRoom, setActiveRoom] = useState<{ id: string; nama: string; kode: string } | null>(null);
@@ -172,21 +202,52 @@ export default function Home() {
           <span className="text-[var(--c3)] text-[11px] font-mono">v2 (Radical Simplicity)</span>
         </div>
 
-        <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-          {(['landing', 'auth', 'dashboard', 'room', 'laporan'] as const).map((v) => {
-            const isActive = currentView === v;
-            return (
-              <button
-                key={v}
-                onClick={() => setCurrentView(v)}
-                className={`px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-                  isActive ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'bg-[var(--c1)] text-[var(--c3)] hover:text-[var(--c4)]'
-                }`}
-              >
-                {v}
-              </button>
-            );
-          })}
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+            {(['landing', 'auth', 'dashboard', 'room', 'laporan'] as const).map((v) => {
+              const isActive = currentView === v;
+              return (
+                <button
+                  key={v}
+                  onClick={() => {
+                    if (v === 'dashboard' && !user) {
+                      setCurrentView('auth');
+                      setToastMessage('Silakan masuk terlebih dahulu.');
+                      return;
+                    }
+                    setCurrentView(v);
+                  }}
+                  className={`px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                    isActive ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'bg-[var(--c1)] text-[var(--c3)] hover:text-[var(--c4)]'
+                  }`}
+                >
+                  {v}
+                </button>
+              );
+            })}
+          </div>
+
+          {user ? (
+            <button
+              onClick={async () => {
+                const supabase = createClient();
+                await supabase.auth.signOut();
+                setUser(null);
+                setCurrentView('landing');
+                setToastMessage('Berhasil keluar.');
+              }}
+              className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c1)] text-[var(--c3)] hover:text-red-400 transition-all cursor-pointer border border-[var(--c2)]"
+            >
+              Keluar ({userName})
+            </button>
+          ) : (
+            <button
+              onClick={() => setCurrentView('auth')}
+              className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c4)] text-[var(--c0)] font-semibold transition-all cursor-pointer"
+            >
+              Masuk
+            </button>
+          )}
         </div>
       </header>
 
@@ -301,7 +362,7 @@ export default function Home() {
              ============================================================== */}
           {displayedView === 'dashboard' && (
             <DashboardView
-              userName="Ayu"
+              userName={userName}
               rooms={dashboardRooms}
               myTaskCount={3}
               myTotalPoints={45}
@@ -492,7 +553,7 @@ export default function Home() {
           setActiveRoom({ id: newRoom.id, nama: newRoom.nama, kode: newRoom.kode });
           setContractLocked(false);
           setContractTasks([]);
-          setContractMembers([{ id: 'me', name: 'Ayu', role: 'ketua', contractVote: 'agree' }]);
+          setContractMembers([{ id: 'me', name: userName, role: 'ketua', contractVote: 'agree' }]);
           setRoomSubTab('kontrak');
           setCurrentView('room');
           setToastMessage(`Ruangan "${name}" berhasil dibuat! Silakan susun tugas kontrak.`);
@@ -508,7 +569,7 @@ export default function Home() {
           <span className="eyebrow text-[11px]">Anggota Tim</span>
           <AvatarStack
             members={[
-              { name: 'Ayu', isOwner: true },
+              { name: userName, isOwner: true },
               { name: 'Bima' },
               { name: 'Citra' },
               { name: 'Dimas' },
@@ -516,7 +577,7 @@ export default function Home() {
             ]}
           />
           <div className="space-y-2 pt-2 text-xs font-mono text-[var(--c3)]">
-            <div className="flex justify-between"><span>Ayu (Ketua)</span><span>10p</span></div>
+            <div className="flex justify-between"><span>{userName} (Ketua)</span><span>10p</span></div>
             <div className="flex justify-between"><span>Bima</span><span>15p</span></div>
             <div className="flex justify-between"><span>Citra</span><span>0p</span></div>
           </div>
@@ -526,7 +587,7 @@ export default function Home() {
           <span className="eyebrow text-[11px]">Aktivitas Terkini</span>
           <div className="space-y-2 text-xs text-[var(--c3)] font-mono">
             <div>Bima kirim bukti jurnal</div>
-            <div>Ayu setujui tugas rangkum</div>
+            <div>{userName} setujui tugas rangkum</div>
             <div>Kontrak terkunci otomatis</div>
           </div>
         </div>
