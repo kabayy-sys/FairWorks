@@ -73,12 +73,12 @@ Keluaran: satu siklus penuh tugas selesai end-to-end.
 - [x] Progres besar + bar anggota + feed realtime (langganan Supabase)
 - [x] Edge case UI: kirim ulang, suara hangus, anggota keluar, tanpa tenggat
 
-### T5 — Halaman Publik (Chello + Iwan) — butuh T1; dossier nyambung saat ada data done
+### T5 — Halaman Publik (Chello + Iwan) — butuh T1; dossier nyambung saat ada data done ✅ SELESAI
 Keluaran: pintu masuk, masuk, dan laporan dosen jadi.
-- [ ] Landing final (hero kinetic + preview + 3 fitur) — Chello
-- [ ] Auth final (magic link satu field, state sukses kartu berganti isi) — Chello
+- [x] Landing final (hero kinetic + preview + 3 fitur) — Chello
+- [x] Auth final (magic link satu field, state sukses kartu berganti isi) — Chello
 - [x] Dashboard final (sapaan, 3 statistik odometer, kartu ruangan, join kode) — Iwan
-- [ ] Dossier publik `/l/{token}`: kepala + pie monokrom + timeline + tabel bukti — Chello
+- [x] Dossier publik `/l/{token}`: kepala + pie monokrom + timeline + tabel bukti — Chello
 
 ### T6 — Nyala End-to-End (semua)
 Keluaran: E2E pertama mulus + edge case tertutup.
