@@ -17,6 +17,7 @@ import { ThumbBar } from './components/ThumbBar';
 import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
 import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
 import { JoinRoomModal } from './components/JoinRoomModal';
+import { CreateRoomModal } from './components/CreateRoomModal';
 import { DashboardView, DashboardRoomItem } from './components/DashboardView';
 import { DossierReport } from './components/DossierReport';
 import { createClient } from '@/lib/supabase/client';
@@ -73,7 +74,9 @@ export default function Home() {
   const [phase, setPhase] = useState<TransitionPhase>('idle');
   const [reducedMotion, setReducedMotion] = useState(false);
 
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // State Ruangan Aktif Terpilih
+  const [activeRoom, setActiveRoom] = useState<{ id: string; nama: string; kode: string } | null>(null);
+  const [createRoomModalOpen, setCreateRoomModalOpen] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState('');
@@ -303,6 +306,9 @@ export default function Home() {
               myTaskCount={3}
               myTotalPoints={45}
               onSelectRoom={(room) => {
+                setActiveRoom({ id: room.id, nama: room.nama, kode: room.kode });
+                setContractLocked(room.status === 'locked');
+                setRoomSubTab(room.status === 'locked' ? 'papan' : 'kontrak');
                 setCurrentView('room');
                 setToastMessage(`Membuka ruangan ${room.nama}`);
               }}
@@ -343,6 +349,8 @@ export default function Home() {
                   <RoomTaskLifecycle
                     currentUserId="user-riski"
                     currentUserName="Riski"
+                    roomName={activeRoom?.nama || 'Ruangan Tim'}
+                    roomCode={activeRoom?.kode || 'RPD-4K7'}
                     onNavigateHome={() => setCurrentView('dashboard')}
                   />
                 ) : (
@@ -355,15 +363,20 @@ export default function Home() {
                       </p>
                     </div>
                     <ContractFlow
-                      roomName="Riset Pasar Digital"
-                      roomCode="RPD-4K7"
+                      roomName={activeRoom?.nama || 'Ruangan Tim'}
+                      roomCode={activeRoom?.kode || 'RPD-4K7'}
                       isOwner={true}
                       isLocked={contractLocked}
-                      lockedAt={contractLocked ? '2026-10-24T10:00:00Z' : null}
+                      lockedAt={contractLocked ? new Date().toISOString() : null}
                       contractDeadline={contractDeadline}
                       members={contractMembers}
                       tasks={contractTasks}
                       currentUserId="me"
+                      onProceedToActiveRoom={() => {
+                        setContractLocked(true);
+                        setRoomSubTab('papan');
+                        setToastMessage('Kontrak resmi terkunci! Membuka Papan Tugas Aktif.');
+                      }}
                       onAddTask={(newTask) => {
                         const id = `t-${Date.now()}`;
                         setContractTasks((prev) => [
@@ -456,18 +469,38 @@ export default function Home() {
         }}
       />
 
+      {/* Create Room Modal (T3/T5: Buat ruangan & langsung redirect ke pre-lock contract) */}
+      <CreateRoomModal
+        isOpen={createRoomModalOpen}
+        onClose={() => setCreateRoomModalOpen(false)}
+        onCreate={(name: string, code?: string) => {
+          const finalCode = code || 'RPD-' + Math.floor(100 + Math.random() * 900);
+          const newRoom: DashboardRoomItem = {
+            id: `room-${Date.now()}`,
+            nama: name,
+            kode: finalCode,
+            role: 'ketua',
+            membersCount: 1,
+            totalPoints: 0,
+            donePoints: 0,
+            reviewPoints: 0,
+            doingPoints: 0,
+            openPoints: 0,
+            status: 'draft',
+          };
+          setDashboardRooms((prev) => [newRoom, ...prev]);
+          setActiveRoom({ id: newRoom.id, nama: newRoom.nama, kode: newRoom.kode });
+          setContractLocked(false);
+          setContractTasks([]);
+          setContractMembers([{ id: 'me', name: 'Ayu', role: 'ketua', contractVote: 'agree' }]);
+          setRoomSubTab('kontrak');
+          setCurrentView('room');
+          setToastMessage(`Ruangan "${name}" berhasil dibuat! Silakan susun tugas kontrak.`);
+        }}
+      />
+
       {/* Global Toast */}
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
-
-      {/* Global Modal (Join Kode) */}
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Masuk Ruangan">
-        <div className="space-y-4">
-          <Field label="Kode Ruangan" placeholder="Contoh: RPD-4K7" />
-          <Btn onClick={() => { setIsModalOpen(false); setToastMessage('Berhasil masuk ruangan!'); }} className="w-full">
-            Gabung
-          </Btn>
-        </div>
-      </Modal>
 
       {/* Drawer Anggota & Aktivitas (DESIGN.md v2 §1.5 #2 & §5.4) */}
       <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title="Anggota & Aktivitas">
@@ -523,28 +556,7 @@ export default function Home() {
               if (displayedView === 'landing') setCurrentView('auth');
               else if (displayedView === 'auth') setAuthSent(true);
               else if (displayedView === 'dashboard') {
-                const chars = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';
-                let code = '';
-                for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
-                code += '-';
-                for (let i = 0; i < 3; i++) code += chars[Math.floor(Math.random() * chars.length)];
-
-                const defaultName = `Ruangan Proyek ${dashboardRooms.length + 1}`;
-                const newRoom: DashboardRoomItem = {
-                  id: `room-${Date.now()}`,
-                  nama: defaultName,
-                  kode: code,
-                  role: 'ketua',
-                  membersCount: 1,
-                  totalPoints: 0,
-                  donePoints: 0,
-                  reviewPoints: 0,
-                  doingPoints: 0,
-                  openPoints: 0,
-                  status: 'draft',
-                };
-                setDashboardRooms((prev) => [newRoom, ...prev]);
-                setToastMessage(`Ruangan baru dibuat (${code})!`);
+                setCreateRoomModalOpen(true);
               }
             }}
             secondaryText={displayedView === 'dashboard' ? 'Masuk kode' : undefined}
