@@ -20,6 +20,7 @@ import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
 import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
 import { JoinRoomModal } from './components/JoinRoomModal';
 import { DashboardView, DashboardRoomItem } from './components/DashboardView';
+import { createClient } from '@/lib/supabase/client';
 
 export default function Home() {
   const [currentView, setCurrentView] = useState<BackgroundMood | 'story'>('landing');
@@ -168,9 +169,23 @@ export default function Home() {
 
               {!authSent ? (
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
-                    if (emailInput) setAuthSent(true);
+                    const email = emailInput.trim();
+                    if (!email) return;
+                    try {
+                      const supabase = createClient();
+                      const { error } = await supabase.auth.signInWithOtp({
+                        email,
+                        options: {
+                          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}` : undefined,
+                        },
+                      });
+                      if (error) throw error;
+                      setAuthSent(true);
+                    } catch (err: unknown) {
+                      setToastMessage(err instanceof Error ? err.message : 'Gagal mengirim tautan magic link.');
+                    }
                   }}
                   className="space-y-4 text-left pt-2"
                 >
