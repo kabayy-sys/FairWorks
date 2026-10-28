@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackgroundMood, LineBackgroundEngine } from './components/LineBackgroundEngine';
 import { KineticTitle } from './components/KineticTitle';
 import {
@@ -19,9 +19,9 @@ import { ContractFlow, ContractTaskItem, ContractMember } from './components/Con
 import { JoinRoomModal } from './components/JoinRoomModal';
 import { CreateRoomModal } from './components/CreateRoomModal';
 import { DashboardView, DashboardRoomItem } from './components/DashboardView';
-import { DossierReport } from './components/DossierReport';
+import { DossierReport, ReportData } from './components/DossierReport';
 import { createClient } from '@/lib/supabase/client';
-import { getUserDashboardData } from '@/lib/api/fairworks';
+import { getUserDashboardData, createRoom, joinRoom } from '@/lib/api/fairworks';
 
 /* ------------------------------------------------------------------
    Transisi antar view (morph + fade)
@@ -78,31 +78,103 @@ export default function Home() {
   // Auth State & User Session
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>('Pengguna');
+  const [myTaskCount, setMyTaskCount] = useState(0);
+  const [myTotalPoints, setMyTotalPoints] = useState(0);
+
+  // Muat data dashboard asli dari Supabase (profil, ruangan, tugas). Kosong = tampil kosong.
+  const loadDashboard = useCallback(async () => {
+    try {
+      const res = await getUserDashboardData();
+      if (!res) return;
+
+      setUserName(res.user.nama || res.user.email?.split('@')[0] || 'Pengguna');
+
+      const rawRooms = (res.rooms ?? []) as Array<{
+        room_id: string;
+        peran: string;
+        rooms: { id: string; nama: string; kode: string; locked_at: string | null };
+      }>;
+      const roomIds = rawRooms.map((r) => r.rooms.id);
+
+      const sb = createClient();
+      const tasksRes = roomIds.length
+        ? await sb.from('tasks').select('room_id, poin, status, assignee_id').in('room_id', roomIds)
+        : { data: [] as Array<{ room_id: string; poin: number | null; status: string; assignee_id: string | null }> | null };
+      const membersRes = roomIds.length
+        ? await sb.from('room_members').select('room_id').in('room_id', roomIds)
+        : { data: [] as Array<{ room_id: string }> | null };
+
+      const tasks = tasksRes.data ?? [];
+      const stats: Record<string, { total: number; done: number; review: number; doing: number; open: number }> = {};
+      let taskCount = 0;
+      let totalPoints = 0;
+      for (const t of tasks) {
+        const poin = t.poin ?? 0;
+        const s = (stats[t.room_id] ??= { total: 0, done: 0, review: 0, doing: 0, open: 0 });
+        s.total += poin;
+        if (t.status === 'done' || t.status === 'review' || t.status === 'doing' || t.status === 'open') {
+          s[t.status] += poin;
+        }
+        if (t.assignee_id === res.user.id) {
+          taskCount += 1;
+          if (t.status === 'done') totalPoints += poin;
+        }
+      }
+
+      const memberCounts: Record<string, number> = {};
+      for (const m of membersRes.data ?? []) {
+        memberCounts[m.room_id] = (memberCounts[m.room_id] ?? 0) + 1;
+      }
+
+      setDashboardRooms(
+        rawRooms.map((r) => {
+          const s = stats[r.rooms.id] ?? { total: 0, done: 0, review: 0, doing: 0, open: 0 };
+          return {
+            id: r.rooms.id,
+            nama: r.rooms.nama,
+            kode: r.rooms.kode,
+            role: r.peran === 'ketua' ? 'ketua' : 'anggota',
+            membersCount: memberCounts[r.rooms.id] ?? 1,
+            totalPoints: s.total,
+            donePoints: s.done,
+            reviewPoints: s.review,
+            doingPoints: s.doing,
+            openPoints: s.open,
+            status: r.rooms.locked_at ? 'locked' : 'draft',
+          } as DashboardRoomItem;
+        })
+      );
+      setMyTaskCount(taskCount);
+      setMyTotalPoints(totalPoints);
+    } catch {
+      // Biarkan dashboard tampil kosong kalau data gagal dimuat
+    }
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setUser(session.user);
-        setUserName(session.user.email?.split('@')[0] || 'Pengguna');
-        getUserDashboardData().then((res) => {
-          if (res && res.rooms) {
-            // rooms loaded
-          }
-        }).catch(() => {});
-      }
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        setUserName(session.user.email?.split('@')[0] || 'Pengguna');
-        setCurrentView('dashboard');
+        if (event === 'SIGNED_IN') setCurrentView('dashboard');
+        loadDashboard();
+      } else {
+        // Sesi habis / belum login: semua state privat dikosongkan & kembali ke landing
+        setUserName('Pengguna');
+        setDashboardRooms([]);
+        setMyTaskCount(0);
+        setMyTotalPoints(0);
+        setActiveRoom(null);
+        setContractLocked(false);
+        setContractDeadline(null);
+        setContractMembers([]);
+        setContractTasks([]);
+        setCurrentView('landing');
       }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [loadDashboard]);
 
   // State Ruangan Aktif Terpilih
   const [activeRoom, setActiveRoom] = useState<{ id: string; nama: string; kode: string } | null>(null);
@@ -172,6 +244,40 @@ export default function Home() {
   const [contractMembers, setContractMembers] = useState<ContractMember[]>([]);
   const [contractTasks, setContractTasks] = useState<ContractTaskItem[]>([]);
 
+  // Data laporan dibangun dari ruangan aktif yang benar-benar ada. Tanpa ruangan = null (laporan tampil kosong).
+  const reportData: ReportData | null = useMemo(() => {
+    if (!activeRoom) return null;
+    return {
+      room: {
+        id: activeRoom.id,
+        nama: activeRoom.nama,
+        kode: activeRoom.kode,
+        locked_at: contractLocked ? (contractDeadline ?? new Date().toISOString()) : null,
+        created_at: new Date().toISOString(),
+        total_points: contractTasks.reduce((s, t) => s + (t.poin ?? 0), 0),
+        done_points: contractTasks.filter((t) => t.status === 'done').reduce((s, t) => s + (t.poin ?? 0), 0),
+      },
+      members: contractMembers.map((m) => ({
+        user_id: m.id,
+        nama: m.name,
+        peran: m.role,
+        points_done: 0, // Draf kontrak belum ada pengerjaan; poin asli mengalir lewat laporan publik /l/{token}
+      })),
+      tasks: contractTasks.map((t) => ({
+        id: t.id,
+        judul: t.judul,
+        deskripsi: t.deskripsi ?? null,
+        poin: t.poin,
+        status: t.status,
+        assignee_name: null,
+        submit_link: null,
+        submit_note: null,
+        submit_at: null,
+      })),
+      timeline: [],
+    };
+  }, [activeRoom, contractTasks, contractMembers, contractLocked, contractDeadline]);
+
   // Background & lebar container langsung ikut tujuan (morph berjalan bareng fade konten)
   const activeMood: BackgroundMood = currentView;
 
@@ -202,53 +308,36 @@ export default function Home() {
           <span className="text-[var(--c3)] text-[11px] font-mono">v2 (Radical Simplicity)</span>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-            {(['landing', 'auth', 'dashboard', 'room', 'laporan'] as const).map((v) => {
-              const isActive = currentView === v;
-              return (
-                <button
-                  key={v}
-                  onClick={() => {
-                    if (v === 'dashboard' && !user) {
-                      setCurrentView('auth');
-                      setToastMessage('Silakan masuk terlebih dahulu.');
-                      return;
-                    }
-                    setCurrentView(v);
-                  }}
-                  className={`px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-                    isActive ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'bg-[var(--c1)] text-[var(--c3)] hover:text-[var(--c4)]'
-                  }`}
-                >
-                  {v}
-                </button>
-              );
-            })}
-          </div>
+        {user && (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+              {(['landing', 'dashboard', 'room', 'laporan'] as const).map((v) => {
+                const isActive = currentView === v;
+                return (
+                  <button
+                    key={v}
+                    onClick={() => setCurrentView(v)}
+                    className={`px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
+                      isActive ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'bg-[var(--c1)] text-[var(--c3)] hover:text-[var(--c4)]'
+                    }`}
+                  >
+                    {v}
+                  </button>
+                );
+              })}
+            </div>
 
-          {user ? (
             <button
               onClick={async () => {
                 const supabase = createClient();
                 await supabase.auth.signOut();
-                setUser(null);
-                setCurrentView('landing');
-                setToastMessage('Berhasil keluar.');
               }}
               className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c1)] text-[var(--c3)] hover:text-red-400 transition-all cursor-pointer border border-[var(--c2)]"
             >
               Keluar ({userName})
             </button>
-          ) : (
-            <button
-              onClick={() => setCurrentView('auth')}
-              className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c4)] text-[var(--c0)] font-semibold transition-all cursor-pointer"
-            >
-              Masuk
-            </button>
-          )}
-        </div>
+          </div>
+        )}
       </header>
 
       {/* Main View Container — lebar ikut morph ke tujuan */}
@@ -364,8 +453,8 @@ export default function Home() {
             <DashboardView
               userName={userName}
               rooms={dashboardRooms}
-              myTaskCount={3}
-              myTotalPoints={45}
+              myTaskCount={myTaskCount}
+              myTotalPoints={myTotalPoints}
               onSelectRoom={(room) => {
                 setActiveRoom({ id: room.id, nama: room.nama, kode: room.kode });
                 setContractLocked(room.status === 'locked');
@@ -380,7 +469,14 @@ export default function Home() {
           {/* ==============================================================
               VIEW 4: ROOM — Siklus Pengerjaan Tugas T4 (Riski) & Flow Kontrak T3 (Iwan)
              ============================================================== */}
-          {displayedView === 'room' && (
+          {displayedView === 'room' && !activeRoom && (
+            <Panel className="p-12 text-center space-y-3 border border-dashed border-[var(--c2)]">
+              <p className="text-sm text-[var(--c3)]">Belum ada ruangan aktif.</p>
+              <p className="text-xs text-[var(--c3)] font-mono">Pilih ruangan dari dashboard terlebih dahulu.</p>
+            </Panel>
+          )}
+
+          {displayedView === 'room' && activeRoom && (
             <div className="space-y-5">
               {/* Toggle Sub-View: Papan Tugas vs Alur Kontrak */}
               <div className="flex items-center justify-between pb-1">
@@ -408,10 +504,10 @@ export default function Home() {
               <div key={roomSubTab} className="fw-sub-enter">
                 {roomSubTab === 'papan' ? (
                   <RoomTaskLifecycle
-                    currentUserId="user-riski"
-                    currentUserName="Riski"
-                    roomName={activeRoom?.nama || 'Ruangan Tim'}
-                    roomCode={activeRoom?.kode || 'RPD-4K7'}
+                    currentUserId={user?.id ?? ''}
+                    currentUserName={userName}
+                    roomName={activeRoom.nama}
+                    roomCode={activeRoom.kode}
                     onNavigateHome={() => setCurrentView('dashboard')}
                   />
                 ) : (
@@ -424,15 +520,15 @@ export default function Home() {
                       </p>
                     </div>
                     <ContractFlow
-                      roomName={activeRoom?.nama || 'Ruangan Tim'}
-                      roomCode={activeRoom?.kode || 'RPD-4K7'}
+                      roomName={activeRoom.nama}
+                      roomCode={activeRoom.kode}
                       isOwner={true}
                       isLocked={contractLocked}
                       lockedAt={contractLocked ? new Date().toISOString() : null}
                       contractDeadline={contractDeadline}
                       members={contractMembers}
                       tasks={contractTasks}
-                      currentUserId="me"
+                      currentUserId={user?.id ?? ''}
                       onProceedToActiveRoom={() => {
                         setContractLocked(true);
                         setRoomSubTab('papan');
@@ -514,7 +610,7 @@ export default function Home() {
              ============================================================== */}
           {displayedView === 'laporan' && (
             <div>
-              <DossierReport onBack={() => setCurrentView('dashboard')} />
+              <DossierReport initialData={reportData} onBack={() => setCurrentView('dashboard')} />
             </div>
           )}
         </div>
@@ -525,8 +621,19 @@ export default function Home() {
         isOpen={joinModalOpen}
         onClose={() => setJoinModalOpen(false)}
         onJoin={async (code) => {
-          setToastMessage(`Berhasil bergabung ke ruangan ${code}!`);
-          setCurrentView('room');
+          try {
+            const res = (await joinRoom(code)) as { room_id: string; nama: string; already_member: boolean };
+            setJoinModalOpen(false);
+            setToastMessage(
+              res.already_member
+                ? `Kamu sudah jadi anggota ruangan "${res.nama}".`
+                : `Berhasil bergabung ke ruangan "${res.nama}"!`
+            );
+            await loadDashboard();
+            setCurrentView('dashboard');
+          } catch (err: unknown) {
+            setToastMessage(err instanceof Error ? err.message : 'Gagal masuk ruangan.');
+          }
         }}
       />
 
@@ -534,29 +641,35 @@ export default function Home() {
       <CreateRoomModal
         isOpen={createRoomModalOpen}
         onClose={() => setCreateRoomModalOpen(false)}
-        onCreate={(name: string, code?: string) => {
-          const finalCode = code || 'RPD-' + Math.floor(100 + Math.random() * 900);
-          const newRoom: DashboardRoomItem = {
-            id: `room-${Date.now()}`,
-            nama: name,
-            kode: finalCode,
-            role: 'ketua',
-            membersCount: 1,
-            totalPoints: 0,
-            donePoints: 0,
-            reviewPoints: 0,
-            doingPoints: 0,
-            openPoints: 0,
-            status: 'draft',
-          };
-          setDashboardRooms((prev) => [newRoom, ...prev]);
-          setActiveRoom({ id: newRoom.id, nama: newRoom.nama, kode: newRoom.kode });
-          setContractLocked(false);
-          setContractTasks([]);
-          setContractMembers([{ id: 'me', name: userName, role: 'ketua', contractVote: 'agree' }]);
-          setRoomSubTab('kontrak');
-          setCurrentView('room');
-          setToastMessage(`Ruangan "${name}" berhasil dibuat! Silakan susun tugas kontrak.`);
+        onCreate={async (name: string) => {
+          try {
+            // Kode ruangan digenerate oleh RPC create_room di Supabase
+            const created = (await createRoom(name)) as { room_id: string; kode: string; nama: string };
+            const newRoom: DashboardRoomItem = {
+              id: created.room_id,
+              nama: created.nama || name,
+              kode: created.kode,
+              role: 'ketua',
+              membersCount: 1,
+              totalPoints: 0,
+              donePoints: 0,
+              reviewPoints: 0,
+              doingPoints: 0,
+              openPoints: 0,
+              status: 'draft',
+            };
+            setDashboardRooms((prev) => [newRoom, ...prev]);
+            setActiveRoom({ id: newRoom.id, nama: newRoom.nama, kode: newRoom.kode });
+            setContractLocked(false);
+            setContractDeadline(null);
+            setContractTasks([]);
+            setContractMembers([{ id: user?.id ?? '', name: userName, role: 'ketua', contractVote: 'agree' }]);
+            setRoomSubTab('kontrak');
+            setCurrentView('room');
+            setToastMessage(`Ruangan "${newRoom.nama}" berhasil dibuat! Kode: ${newRoom.kode}`);
+          } catch (err: unknown) {
+            setToastMessage(err instanceof Error ? err.message : 'Gagal membuat ruangan.');
+          }
         }}
       />
 
@@ -567,29 +680,26 @@ export default function Home() {
       <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title="Anggota & Aktivitas">
         <div className="space-y-4">
           <span className="eyebrow text-[11px]">Anggota Tim</span>
-          <AvatarStack
-            members={[
-              { name: userName, isOwner: true },
-              { name: 'Bima' },
-              { name: 'Citra' },
-              { name: 'Dimas' },
-              { name: 'Esa' },
-            ]}
-          />
+          {contractMembers.length === 0 ? (
+            <p className="text-xs text-[var(--c3)] font-mono">Belum ada anggota.</p>
+          ) : (
+            <AvatarStack
+              members={contractMembers.map((m) => ({ name: m.name, isOwner: m.role === 'ketua' }))}
+            />
+          )}
           <div className="space-y-2 pt-2 text-xs font-mono text-[var(--c3)]">
-            <div className="flex justify-between"><span>{userName} (Ketua)</span><span>10p</span></div>
-            <div className="flex justify-between"><span>Bima</span><span>15p</span></div>
-            <div className="flex justify-between"><span>Citra</span><span>0p</span></div>
+            {contractMembers.map((m) => (
+              <div key={m.id} className="flex justify-between">
+                <span>{m.name}{m.role === 'ketua' ? ' (Ketua)' : ''}</span>
+                <span>0p</span>
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="space-y-3 pt-4 border-t border-[var(--c1)]">
           <span className="eyebrow text-[11px]">Aktivitas Terkini</span>
-          <div className="space-y-2 text-xs text-[var(--c3)] font-mono">
-            <div>Bima kirim bukti jurnal</div>
-            <div>{userName} setujui tugas rangkum</div>
-            <div>Kontrak terkunci otomatis</div>
-          </div>
+          <p className="text-xs text-[var(--c3)] font-mono">Belum ada aktivitas.</p>
         </div>
       </Drawer>
 
