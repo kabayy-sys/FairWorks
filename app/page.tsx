@@ -20,6 +20,7 @@ import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
 import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
 import { JoinRoomModal } from './components/JoinRoomModal';
 import { DashboardView, DashboardRoomItem } from './components/DashboardView';
+import { DossierReport } from './components/DossierReport';
 import { createClient } from '@/lib/supabase/client';
 
 export default function Home() {
@@ -377,57 +378,11 @@ export default function Home() {
         )}
 
         {/* ==============================================================
-            VIEW 5: LAPORAN PUBLIK — 1 Kolom Ringkas (DESIGN.md v2 §5.5)
+            VIEW 5: DOSSIER PUBLIK FINAL (Chello - PRD §6 F5 / PLAN T5)
+            Kepala laporan + Pie chart monokrom + Timeline + Tabel bukti
            ============================================================== */}
         {currentView === 'laporan' && (
-          <div className="space-y-6 animate-in fade-in duration-700">
-            <Panel className="space-y-5 border border-[var(--c2)] p-6">
-              <div className="space-y-1.5 border-b border-[var(--c1)] pb-4">
-                <span className="eyebrow text-xs">Laporan Kontribusi</span>
-                <h2 className="text-2xl font-semibold">Riset Pasar Digital</h2>
-                <p className="text-xs font-mono text-[var(--c3)]">RPD-4K7 · 5 orang · 40 poin · Terkunci 30 Okt</p>
-              </div>
-
-              {/* Pie / Strip Kontribusi ringkas */}
-              <div className="space-y-2">
-                <span className="eyebrow text-[11px]">Kontribusi Anggota</span>
-                <p className="text-xs text-[var(--c3)] font-mono leading-relaxed">
-                  Ayu 25% · Bima 30% · Citra 20% · Dimas 15% · Esa 10%
-                </p>
-                <Track done={25} review={30} doing={20} open={25} />
-              </div>
-
-              {/* Timeline ringkas */}
-              <div className="space-y-2 pt-2 border-t border-[var(--c1)]">
-                <span className="eyebrow text-[11px]">Linimasa</span>
-                <div className="space-y-1.5 text-xs text-[var(--c3)] font-mono">
-                  <div>30 Okt ● Kontrak terkunci</div>
-                  <div>02 Nov ● Ayu ambil bab latar belakang</div>
-                  <div>04 Nov ● Bima kirim rangkuman jurnal</div>
-                  <div>05 Nov ● 3 orang menyetujui tugas</div>
-                </div>
-              </div>
-
-              {/* Tabel / Baris Bukti Selesai */}
-              <div className="space-y-2 pt-2 border-t border-[var(--c1)]">
-                <span className="eyebrow text-[11px]">Hasil & Bukti</span>
-                <div className="space-y-1.5 text-xs">
-                  <div className="p-3 bg-[var(--c1)] rounded-[12px] flex justify-between items-center">
-                    <span>✓ Tulis bab latar belakang (10p) · Ayu</span>
-                    <span className="font-mono text-[var(--c3)]">[Dokumen]</span>
-                  </div>
-                  <div className="p-3 bg-[var(--c1)] rounded-[12px] flex justify-between items-center">
-                    <span>✓ Rangkum 10 jurnal (15p) · Bima</span>
-                    <span className="font-mono text-[var(--c3)]">[GitHub]</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pt-2 text-center text-[11px] font-mono text-[var(--c3)]">
-                Dibuat dengan FairWorks · Tanpa Login
-              </div>
-            </Panel>
-          </div>
+          <DossierReport onBack={() => setCurrentView('dashboard')} />
         )}
 
         {/* ==============================================================
