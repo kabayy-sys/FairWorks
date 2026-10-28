@@ -391,12 +391,12 @@ export default function Home() {
                         setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
                         setToastMessage('Tugas dihapus dari kontrak');
                       }}
-                      onSubmitContract={() => {
-                        const d = new Date();
-                        d.setHours(d.getHours() + 24);
-                        setContractDeadline(d.toISOString());
-                        setToastMessage('Kontrak diajukan! Batas 24 jam dimulai.');
-                      }}
+                  onSubmitContract={async () => {
+                    const d = new Date();
+                    d.setHours(d.getHours() + 24);
+                    setContractDeadline(d.toISOString());
+                    setToastMessage('Kontrak diajukan! Batas 24 jam dimulai.');
+                  }}
                       onVoteContract={(agree, note) => {
                         setContractMembers((prev) =>
                           prev.map((m) =>

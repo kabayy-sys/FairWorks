@@ -84,7 +84,8 @@ Keluaran: pintu masuk, masuk, dan laporan dosen jadi.
 Keluaran: E2E pertama mulus + edge case tertutup.
 - [ ] E2E: bikin ruangan → kontrak → ambil → kirim → 2 setuju → done (Rab pertama setelah T4 jadi)
 - [ ] Edge case PRD 4.8 satu per satu
-- [ ] Audit RLS + hardening RPC (Raken)
+- [x] Audit RLS + hardening RPC (Raken)
+- [x] Verifikasi kalkulasi kuorum mayoritas & siklus status DB (Raken)
 - [ ] Notifikasi: in-app bell + toast (Iwan) + email 5 trigger Edge Function (Raken)
 - [ ] Fallback polling realtime
 
