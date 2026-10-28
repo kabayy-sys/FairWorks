@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "Ketua membagi tugas berpoin, anggota mengambil porsinya, hasil dihitung setelah disetujui teman satu kelompok. Laporan kontribusi untuk dosen, tanpa login.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html
       lang="id"
