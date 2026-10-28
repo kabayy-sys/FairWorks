@@ -64,7 +64,7 @@ begin
 
   return jsonb_build_object('room_id', v_room_id, 'kode', v_code, 'nama', trim(p_nama));
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- 3. join_room
 create or replace function public.join_room(p_kode text)
@@ -108,7 +108,7 @@ begin
 
   return jsonb_build_object('room_id', v_room.id, 'nama', v_room.nama, 'already_member', false);
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- 4. submit_contract (PRD F3)
 create or replace function public.submit_contract(p_room_id uuid)
@@ -166,7 +166,7 @@ begin
 
   return jsonb_build_object('success', true, 'contract_deadline', now() + interval '24 hours');
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- 5. vote_contract (PRD F3)
 create or replace function public.vote_contract(p_room_id uuid, p_agree boolean, p_note text default null)
@@ -234,7 +234,7 @@ begin
 
   return jsonb_build_object('success', true, 'locked', v_all_agreed);
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- 6. auto_lock (PRD F3 24h silent default)
 create or replace function public.auto_lock(p_room_id uuid)
@@ -267,7 +267,7 @@ begin
 
   return jsonb_build_object('locked', false, 'contract_deadline', v_room.contract_deadline);
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- 7. take_task (PRD F4.2: Ambil tugas & ambil alih overdue)
 create or replace function public.take_task(p_task_id uuid)
@@ -342,7 +342,7 @@ begin
 
   return jsonb_build_object('success', true, 'is_takeover', v_is_overdue);
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- 8. submit_proof (PRD F4.3: Kirim bukti kerja)
 create or replace function public.submit_proof(p_task_id uuid, p_link text, p_note text default null)
@@ -406,7 +406,7 @@ begin
 
   return jsonb_build_object('success', true);
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- 9. cast_vote (PRD F4.4: Persetujuan teman & revisi)
 create or replace function public.cast_vote(p_task_id uuid, p_vote text, p_note text default null)
@@ -546,7 +546,7 @@ begin
 
   return jsonb_build_object('success', true, 'status', 'review', 'ok_votes', v_ok_votes, 'needed', v_needed);
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- 10. get_report (PRD F5: Dossier publik untuk dosen, nol login)
 create or replace function public.get_report(p_token text)
@@ -638,7 +638,7 @@ begin
     'timeline', coalesce(v_timeline, '[]'::jsonb)
   );
 end;
-$$ language plpgsql security definer search_path = public;
+$$ language plpgsql security definer set search_path = public;
 
 -- Grant execute on get_report to anon and authenticated
 grant execute on function public.get_report(text) to anon, authenticated;
