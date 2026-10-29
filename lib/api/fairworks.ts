@@ -195,8 +195,66 @@ export async function getUserDashboardData() {
 
   if (roomErr) throw roomErr;
 
+  // Tugas milik user yang masih berjalan (untuk kartu "Tugas Anda")
+  const { data: myTasks } = await supabase
+    .from("tasks")
+    .select("id, judul, status, poin, due_date, rooms(nama)")
+    .eq("assignee_id", user.id)
+    .in("status", ["open", "doing", "review"])
+    .order("due_date", { ascending: true, nullsFirst: false })
+    .limit(8);
+
   return {
     user: profile || { id: user.id, email: user.email, nama: user.email?.split("@")[0] || "User" },
     rooms: memberRooms || [],
+    myTasks: myTasks || [],
+  };
+}
+
+export interface RoomTask {
+  id: string;
+  judul: string;
+  deskripsi: string | null;
+  poin: number;
+  status: "open" | "doing" | "review" | "done";
+  assignee_id: string | null;
+  due_date: string | null;
+  submit_link: string | null;
+  submit_note: string | null;
+  revision_note: string | null;
+  created_at: string;
+}
+
+export interface RoomMember {
+  user_id: string;
+  peran: string;
+  profiles: { nama: string | null } | null;
+}
+
+export interface RoomActivity {
+  id: string;
+  aksi: string;
+  created_at: string;
+  profiles: { nama: string | null } | null;
+}
+
+// Data lengkap satu ruangan: tugas, anggota, aktivitas terakhir
+export async function getRoomData(roomId: string) {
+  const supabase = createClient();
+  const [{ data: tasks, error }, { data: members }, { data: activities }] = await Promise.all([
+    supabase.from("tasks").select("*").eq("room_id", roomId).order("created_at", { ascending: true }),
+    supabase.from("room_members").select("user_id, peran, profiles(nama)").eq("room_id", roomId),
+    supabase
+      .from("activity_log")
+      .select("id, aksi, created_at, profiles:actor_id(nama)")
+      .eq("room_id", roomId)
+      .order("created_at", { ascending: false })
+      .limit(30),
+  ]);
+  if (error) throw error;
+  return {
+    tasks: (tasks ?? []) as RoomTask[],
+    members: (members ?? []) as RoomMember[],
+    activities: (activities ?? []) as RoomActivity[],
   };
 }
