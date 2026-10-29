@@ -258,3 +258,10 @@ export async function getRoomData(roomId: string) {
     activities: (activities ?? []) as RoomActivity[],
   };
 }
+
+// Hapus ruangan (hanya boleh oleh owner — divalidasi RLS "Owners can delete rooms")
+export async function deleteRoom(roomId: string) {
+  const supabase = createClient();
+  const { error } = await supabase.from("rooms").delete().eq("id", roomId);
+  if (error) throw error;
+}

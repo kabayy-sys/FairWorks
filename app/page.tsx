@@ -3,8 +3,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { LandingView } from './views/LandingView';
+import { DashboardViewNew } from './views/DashboardViewNew';
 import { RoomView } from './views/RoomView';
 import {
+  deleteRoom,
   getUserDashboardData,
   createRoom,
   joinRoom,
@@ -61,6 +63,18 @@ export default function Home() {
     setTimeout(() => {
       setToastMsg((cur) => (cur === msg ? null : cur));
     }, 2800);
+  };
+
+  // Delete room handler
+  const handleDeleteRoom = async (roomId: string) => {
+    try {
+      await deleteRoom(roomId);
+      setRooms((prev) => prev.filter((r) => r.id !== roomId));
+      showToast('Ruangan berhasil dihapus.');
+    } catch (err) {
+      console.error('Delete room error:', err);
+      showToast('Gagal menghapus ruangan.');
+    }
   };
 
   /* ------------------------------------------------------------------
@@ -698,82 +712,34 @@ export default function Home() {
           {/* VIEW: DASHBOARD */}
           {view === 'dashboard' && (
             <section className="view in" id="v-dashboard">
-              <div className="wrap page">
-                <div className="phead" data-s>
-                  <div>
-                    <h1>Ruangan Anda</h1>
-                    <p className="sub">
-                      {rooms.length} ruangan aktif {myTasks.length ? `· ${myTasks.length} tugas Anda sedang berjalan` : ''}
-                    </p>
-                  </div>
-                  <div className="pact">
-                    <button className="btn" type="button" onClick={() => setModalState({ type: 'joinRoom' })}>
-                      Gabung dengan kode
-                    </button>
-                    <button className="btn solid" type="button" onClick={() => setModalState({ type: 'createRoom' })}>
-                      Buat ruangan
-                    </button>
-                  </div>
-                </div>
-
-                <div className="cols">
-                  <section data-s>
-                    <div className="rlist">
-                      {rooms.length > 0 ? (
-                        rooms.map((r, i) => (
-                          <button
-                            key={r.id}
-                            className="rrow"
-                            type="button"
-                            onClick={() => go('team', i)}
-                          >
-                            <span className="rname">
-                              <b>{r.name}</b>
-                              <small>
-                                {r.members.length} anggota · {r.tasks.filter((t: any) => t.status !== 'done').length} tugas belum selesai · {r.code}
-                              </small>
-                            </span>
-                            <span className="rprog">
-                              <span className="bar">
-                                <i style={{ width: `${r.stats.pct}%` }} />
-                              </span>
-                              <em>{r.stats.pct}%</em>
-                            </span>
-                          </button>
-                        ))
-                      ) : (
-                        <div className="empty">
-                          <h3>Belum ada ruangan</h3>
-                          <p>Buat ruangan baru atau gabung ke ruangan teman dengan kode.</p>
-                        </div>
-                      )}
-                    </div>
-                  </section>
-
-                  <aside data-s>
-                    <h2>Tugas Anda</h2>
-                    <div>
-                      {myTasks.length > 0 ? (
-                        myTasks.map((x, idx) => (
-                          <button
-                            key={idx}
-                            className="mrow2"
-                            type="button"
-                            onClick={() => go('team', x.roomIndex)}
-                          >
-                            <b>{x.t.title}</b>
-                            <small className={x.t.status === 'doing' && formatDue(x.t.due).includes('terlambat') ? 'late' : ''}>
-                              {x.r.name} · {x.t.status === 'review' ? 'menunggu persetujuan' : formatDue(x.t.due)}
-                            </small>
-                          </button>
-                        ))
-                      ) : (
-                        <p className="muted">Tidak ada tugas yang sedang berjalan.</p>
-                      )}
-                    </div>
-                  </aside>
-                </div>
-              </div>
+              <DashboardViewNew
+                userName={userName}
+                rooms={rooms.map((r) => ({
+                  id: r.id,
+                  nama: r.name,
+                  kode: r.code,
+                  role: r.role === 'ketua' ? 'ketua' : 'anggota',
+                  membersCount: r.members?.length || 0,
+                  status: 'open',
+                  totalPoints: r.stats?.total || 0,
+                  donePoints: r.stats?.done || 0,
+                }))}
+                myTasks={myTasks.map((x) => ({
+                  id: x.t.id,
+                  judul: x.t.title,
+                  status: x.t.status,
+                  poin: x.t.points,
+                  due_date: x.t.due || null,
+                  rooms: { nama: x.r.name },
+                }))}
+                onSelectRoom={(room) => {
+                  const idx = rooms.findIndex((r) => r.id === room.id);
+                  if (idx >= 0) go('team', idx);
+                }}
+                onJoin={() => setModalState({ type: 'joinRoom' })}
+                onCreate={() => setModalState({ type: 'createRoom' })}
+                onDeleteRoom={handleDeleteRoom}
+              />
             </section>
           )}
 
