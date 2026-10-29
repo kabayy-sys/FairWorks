@@ -6,6 +6,7 @@ import { LandingView } from './views/LandingView';
 import { DashboardViewNew } from './views/DashboardViewNew';
 import { RoomView } from './views/RoomView';
 import {
+  deleteRoom,
   getUserDashboardData,
   createRoom,
   joinRoom,
@@ -67,10 +68,7 @@ export default function Home() {
   // Delete room handler
   const handleDeleteRoom = async (roomId: string) => {
     try {
-      const supabase = createClient();
-      const { error } = await supabase.from('rooms').delete().eq('id', roomId);
-      if (error) throw error;
-      
+      await deleteRoom(roomId);
       setRooms((prev) => prev.filter((r) => r.id !== roomId));
       showToast('Ruangan berhasil dihapus.');
     } catch (err) {
@@ -722,9 +720,9 @@ export default function Home() {
                   kode: r.code,
                   role: r.role === 'ketua' ? 'ketua' : 'anggota',
                   membersCount: r.members?.length || 0,
-                  status: r.contractLocked ? 'locked' : 'open',
-                  totalPoints: r.stats?.totalPoints || 0,
-                  donePoints: r.stats?.donePoints || 0,
+                  status: 'open',
+                  totalPoints: r.stats?.total || 0,
+                  donePoints: r.stats?.done || 0,
                 }))}
                 myTasks={myTasks.map((x) => ({
                   id: x.t.id,
