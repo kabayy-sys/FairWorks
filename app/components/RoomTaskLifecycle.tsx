@@ -1118,4 +1118,4 @@ export function RoomTaskLifecycle({
       />
     </div>
   );
-};
+}

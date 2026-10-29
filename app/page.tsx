@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { LandingView } from './views/LandingView';
+import { RoomView } from './views/RoomView';
 import {
   getUserDashboardData,
   createRoom,
@@ -776,263 +777,20 @@ export default function Home() {
             </section>
           )}
 
-          {/* VIEW: TEAM ROOM */}
+          {/* VIEW: TEAM ROOM — pakai RoomView (TaskSkyline + ContributionPie aktif) */}
           {view === 'team' && currentRoom && (
             <section className="view in" id="v-team">
-              <div className="wrap page">
-                <nav className="crumb" data-s aria-label="Lokasi">
-                  <button className="lnk" type="button" onClick={() => go('dashboard')}>
-                    Ruangan
-                  </button>
-                  <span aria-hidden="true">/</span>
-                  <span>{currentRoom.name}</span>
-                </nav>
-
-                <div className="phead" data-s>
-                  <div>
-                    <h1>{currentRoom.name}</h1>
-                    <p className="sub">
-                      {currentRoom.members.length} anggota ·{' '}
-                      {currentRoom.role === 'ketua' ? 'Anda ketua' : 'Anda anggota'} · Kode{' '}
-                      <button
-                        className="code"
-                        type="button"
-                        onClick={() => copyRoomCode(currentRoom.code)}
-                      >
-                        {currentRoom.code}
-                      </button>
-                    </p>
-                  </div>
-                  <div className="pact">
-                    <button
-                      className="btn solid"
-                      type="button"
-                      onClick={() => setModalState({ type: 'addTask' })}
-                    >
-                      Tambah tugas
-                    </button>
-                  </div>
-                </div>
-
-                {/* Ringkasan Poin & Progress Bar Multi-Segment */}
-                <div className="sum" data-s>
-                  <div className="pct">
-                    {currentRoom.stats.pct}
-                    <small>%</small>
-                  </div>
-                  <div>
-                    <p>
-                      <b>{currentRoom.stats.done}</b> dari <b>{currentRoom.stats.total}</b> poin sudah disetujui
-                      {currentRoom.stats.review > 0 && ` · ${currentRoom.stats.review} poin menunggu persetujuan`}
-                    </p>
-                    <div className="track">
-                      <i
-                        className="seg done"
-                        style={{
-                          width: `${currentRoom.stats.total ? (currentRoom.stats.done / currentRoom.stats.total) * 100 : 0}%`,
-                        }}
-                      />
-                      <i
-                        className="seg review"
-                        style={{
-                          width: `${currentRoom.stats.total ? (currentRoom.stats.review / currentRoom.stats.total) * 100 : 0}%`,
-                        }}
-                      />
-                      <i
-                        className="seg doing"
-                        style={{
-                          width: `${currentRoom.stats.total ? (currentRoom.stats.doing / currentRoom.stats.total) * 100 : 0}%`,
-                        }}
-                      />
-                      <i
-                        className="seg open"
-                        style={{
-                          width: `${currentRoom.stats.total ? (currentRoom.stats.open / currentRoom.stats.total) * 100 : 0}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="legend">
-                      <span><i className="d" />Disetujui</span>
-                      <span><i className="r" />Perlu disetujui</span>
-                      <span><i className="g" />Dikerjakan</span>
-                      <span><i />Belum diambil</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="cols">
-                  {/* Kolom Kiri: Tab & List Tugas */}
-                  <section data-s aria-label="Daftar tugas">
-                    <div className="tabs" role="tablist">
-                      {[
-                        ['all', 'Semua'],
-                        ['review', 'Perlu disetujui'],
-                        ['doing', 'Dikerjakan'],
-                        ['open', 'Bisa diambil'],
-                        ['done', 'Selesai'],
-                      ].map(([k, label]) => {
-                        const cnt =
-                          k === 'all'
-                            ? currentRoom.tasks.length
-                            : currentRoom.tasks.filter((t: any) => t.status === k).length;
-                        return (
-                          <button
-                            key={k}
-                            type="button"
-                            role="tab"
-                            aria-selected={tab === k}
-                            onClick={() => setTab(k as any)}
-                          >
-                            {label}
-                            <em>{cnt}</em>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="tlist">
-                      {currentRoom.tasks
-                        .filter((t: any) => tab === 'all' || t.status === tab)
-                        .map((t: any) => {
-                          const isOpen = !!openIds[t.id];
-                          const isMyTask = t.assignee === user?.id;
-                          const assigneeMember = currentRoom.members.find((m: any) => m.id === t.assignee);
-                          const who = assigneeMember ? (isMyTask ? `${assigneeMember.name} (Anda)` : assigneeMember.name) : 'Belum ada yang mengambil';
-
-                          return (
-                            <article key={t.id} className={`trow ${isOpen ? 'open' : ''}`}>
-                              <div className="tmain">
-                                <span className={`sti st-${t.status}`}>
-                                  {renderIcon(t.status)}
-                                </span>
-                                <button
-                                  className="ttl"
-                                  type="button"
-                                  onClick={() => setOpenIds((prev) => ({ ...prev, [t.id]: !prev[t.id] }))}
-                                  aria-expanded={isOpen}
-                                >
-                                  <h3>{t.title}</h3>
-                                  <p className="tmeta">
-                                    <span className="stl">{getStatusLabel(t.status)}</span> · {who} · {t.points} poin · {formatDue(t.due)}
-                                  </p>
-                                </button>
-                                <div className="tact">
-                                  {t.status === 'doing' && isMyTask && (
-                                    <button
-                                      className="btn solid sm"
-                                      type="button"
-                                      onClick={() => setModalState({ type: 'submitProof', task: t })}
-                                    >
-                                      Kirim hasil
-                                    </button>
-                                  )}
-                                  {(t.status === 'open' || (t.status === 'doing' && !isMyTask && formatDue(t.due).includes('terlambat'))) && (
-                                    <button
-                                      className="btn solid sm"
-                                      type="button"
-                                      onClick={() => handleTakeTask(t.id)}
-                                    >
-                                      {t.status === 'open' ? 'Ambil' : 'Ambil alih'}
-                                    </button>
-                                  )}
-                                  {t.status === 'review' && !isMyTask && (
-                                    <>
-                                      <button
-                                        className="btn solid sm"
-                                        type="button"
-                                        onClick={() => handleVote(t.id, 'ok')}
-                                      >
-                                        Setujui
-                                      </button>
-                                      <button
-                                        className="btn sm"
-                                        type="button"
-                                        onClick={() => setModalState({ type: 'revise', task: t })}
-                                      >
-                                        Minta revisi
-                                      </button>
-                                    </>
-                                  )}
-                                  {t.status === 'review' && isMyTask && (
-                                    <span className="done-note">Menunggu persetujuan teman</span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="tmore">
-                                <div className="tdet">
-                                  {t.desc && <p>{t.desc}</p>}
-                                  {t.submit && (
-                                    <p className="nt">
-                                      <b>Catatan pengirim:</b> {t.submit.note || '-'}{' '}
-                                      {t.submit.link && (
-                                        <a href={t.submit.link} target="_blank" rel="noreferrer" className="lnk ml-1">
-                                          {t.submit.link}
-                                        </a>
-                                      )}
-                                    </p>
-                                  )}
-                                  {t.revNote && (
-                                    <p className="nt">
-                                      <b>Perlu revisi:</b> {t.revNote}
-                                    </p>
-                                  )}
-                                  {t.status === 'doing' && isMyTask && (
-                                    <p>
-                                      <button
-                                        className="lnk"
-                                        type="button"
-                                        onClick={() => handleReleaseTask(t.id)}
-                                      >
-                                        Lepas tugas ini
-                                      </button>
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
-                            </article>
-                          );
-                        })}
-                    </div>
-                  </section>
-
-                  {/* Kolom Kanan: Anggota & Aktivitas */}
-                  <aside data-s>
-                    <h2>Anggota</h2>
-                    <div id="ppl">
-                      {currentRoom.members.map((m: any) => {
-                        const mine = currentRoom.tasks.filter((t: any) => t.assignee === m.id);
-                        const actCount = mine.filter((t: any) => t.status !== 'done').length;
-                        const ptsDone = mine
-                          .filter((t: any) => t.status === 'done')
-                          .reduce((s: number, t: any) => s + t.points, 0);
-                        const pctDone = currentRoom.stats.total
-                          ? Math.round((ptsDone / currentRoom.stats.total) * 100)
-                          : 0;
-
-                        return (
-                          <div key={m.id} className="prow">
-                            <span className={`av ${m.lead ? 'lead' : ''}`} aria-hidden="true">
-                              {m.name.charAt(0).toUpperCase()}
-                            </span>
-                            <div>
-                              <div className="pn">
-                                {m.name} {m.id === user?.id ? '(Anda)' : ''}
-                                {m.lead && <span className="role">Ketua</span>}
-                              </div>
-                              <small>{actCount} tugas aktif</small>
-                              <span className="bar">
-                                <i style={{ width: `${pctDone}%` }} />
-                              </span>
-                            </div>
-                            <b className="pp">{ptsDone} poin</b>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </aside>
-                </div>
-              </div>
+              <RoomView
+                roomId={currentRoom.id}
+                roomName={currentRoom.name}
+                roomCode={currentRoom.code}
+                userId={user?.id ?? ''}
+                isOwner={currentRoom.role === 'ketua'}
+                onToast={showToast}
+                onBack={() => go('dashboard')}
+                contractSlot={null}
+                contractLocked={false}
+              />
             </section>
           )}
         </div>
