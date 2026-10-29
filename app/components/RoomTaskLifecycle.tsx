@@ -324,9 +324,9 @@ export function RoomTaskLifecycle({
     try {
       await apiCastVote(task.id, 'ok').catch(() => null);
 
-      // Quorum calculation: ALL members (except assignee) must approve
+      // Quorum calculation: floor((n - 1) / 2) + 1
       const eligibleCount = members.filter((m) => m.id !== task.assignee_id).length;
-      const needed = eligibleCount; // Semua member harus setuju
+      const needed = eligibleCount <= 1 ? 1 : Math.floor((eligibleCount - 1) / 2) + 1;
 
       const existingVotes = task.votes || [];
       const updatedVotes = [
