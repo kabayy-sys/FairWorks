@@ -132,7 +132,47 @@ body {
   }
 }
 
-/* ===== Shell halaman (ruang-tim): transisi antar view + stagger masuk ===== */
+@property --ang {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes spin {
+  to {
+    --ang: 360deg;
+  }
+}
+
+.landing-mb {
+  appearance: none;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  border-radius: 999px;
+  padding: 14px 28px;
+  font: 500 15px var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  color: var(--c4);
+  background:
+    linear-gradient(var(--c1), var(--c1)) padding-box,
+    conic-gradient(from var(--ang), transparent 0 55%, var(--c4) 80%, transparent 100%) border-box;
+  animation: spin 3.2s linear infinite;
+  transition: transform 0.2s cubic-bezier(0.3, 1.4, 0.4, 1);
+}
+
+.landing-mb:hover {
+  transform: scale(1.05);
+}
+
+.landing-mb:active {
+  transform: scale(0.97);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-mb {
+    animation: none;
+  }
+}
+
 @keyframes fwLeave {
   to {
     opacity: 0;
