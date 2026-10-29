@@ -3,6 +3,8 @@
 import React from 'react';
 import { Modal, Field, Btn } from '../components/DesignSystem';
 import { getRoomData, type RoomTask, type RoomMember, type RoomActivity } from '@/lib/api/fairworks';
+import { ContributionPie } from '../components/Contributionpie';
+import { TaskSkyline, type SkylineStatus } from '../components/Taskskyline';
 
 interface RoomViewProps {
   roomId: string;
@@ -62,6 +64,7 @@ export function RoomView({
   const [tab, setTab] = React.useState<'semua' | 'open' | 'doing' | 'review' | 'done' | 'kontrak'>('semua');
   const [openRow, setOpenRow] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
+  const [viewMode, setViewMode] = React.useState<'daftar' | 'kota'>('daftar');
 
   // modal aksi
   const [proofTask, setProofTask] = React.useState<RoomTask | null>(null);
@@ -129,6 +132,34 @@ export function RoomView({
     if (tab === 'semua' || tab === 'kontrak') return tasks;
     return tasks.filter((t) => t.status === tab);
   }, [tasks, tab]);
+
+  // Data untuk Skyline: 1 gedung = 1 tugas (mengikuti tab yang sedang dipilih)
+  const skylineTasks = React.useMemo(
+    () =>
+      filtered.map((t) => ({
+        id: t.id,
+        judul: t.judul,
+        poin: t.poin ?? 0,
+        status: t.status as SkylineStatus,
+        assignee_name: memberName(t.assignee_id),
+      })),
+    [filtered, memberName]
+  );
+
+  // Data untuk donut kontribusi: poin tugas yang sudah disetujui per anggota
+  const pieMembers = React.useMemo(() => {
+    const pts = new Map<string, number>();
+    for (const t of tasks) {
+      if (t.status === 'done' && t.assignee_id) pts.set(t.assignee_id, (pts.get(t.assignee_id) ?? 0) + (t.poin ?? 0));
+    }
+    return members.map((m) => ({
+      id: m.user_id,
+      name: m.profiles?.nama ?? 'Anggota',
+      role: m.peran === 'ketua' ? 'Ketua' : 'Anggota',
+      points: pts.get(m.user_id) ?? 0,
+      isCurrentUser: m.user_id === userId,
+    }));
+  }, [tasks, members, userId]);
 
   const run = async (fn: () => Promise<unknown>, okMsg: string) => {
     setBusy(true);
@@ -203,6 +234,15 @@ export function RoomView({
     setReviseNote('');
   };
 
+  // Klik gedung di Skyline: balik ke daftar, buka rincian tugasnya, scroll ke sana
+  const openFromCity = (id: string) => {
+    setViewMode('daftar');
+    setOpenRow(id);
+    window.setTimeout(() => {
+      document.getElementById(`task-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+  };
+
   const nowIso = Date.now();
 
   return (
@@ -269,6 +309,32 @@ export function RoomView({
       {/* Papan */}
       <div className="grid grid-cols-1 gap-11 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section aria-label="Daftar tugas">
+          {tab !== 'kontrak' && (
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <span className="text-[13px] text-[var(--c3)]">
+                {viewMode === 'kota' ? 'Satu gedung = satu tugas · klik untuk buka rincian' : ''}
+              </span>
+              <div
+                role="group"
+                aria-label="Pilih tampilan tugas"
+                className="flex rounded-full border border-[var(--c2)] bg-[var(--c1)] p-0.5 text-[13px]"
+              >
+                {(['daftar', 'kota'] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    aria-pressed={viewMode === mode}
+                    onClick={() => setViewMode(mode)}
+                    className={`cursor-pointer rounded-full px-3.5 py-1 capitalize transition-all duration-300 ${
+                      viewMode === mode ? 'bg-[var(--c4)] font-semibold text-[var(--c0)]' : 'text-[var(--c3)] hover:text-[var(--c4)]'
+                    }`}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
           <div ref={tabsRef} className="relative -mx-1 flex gap-5 overflow-x-auto border-b border-[var(--c1)]" style={{ scrollbarWidth: 'none' }}>
             {([
               ['semua', 'Semua'],
@@ -276,7 +342,7 @@ export function RoomView({
               ['doing', 'Berjalan'],
               ['review', 'Menunggu'],
               ['done', 'Selesai'],
-              ['kontrak', 'Kontrak'],
+              ...(contractSlot ? [['kontrak', 'Kontrak']] as const : []),
             ] as const).map(([k, label]) => (
               <button
                 key={k}
@@ -308,6 +374,10 @@ export function RoomView({
                 {tab === 'semua' ? 'Tambahkan tugas pertama dengan tombol "Tambah tugas".' : 'Coba kategori lain.'}
               </p>
             </div>
+          ) : viewMode === 'kota' ? (
+            <div className="pt-6" style={{ animation: 'fwRise .5s var(--ease) both' }}>
+              <TaskSkyline tasks={skylineTasks} pct={stats.pct} onSelectTask={openFromCity} />
+            </div>
           ) : (
             <div>
               {filtered.map((t, i) => {
@@ -315,7 +385,7 @@ export function RoomView({
                 const late = t.due_date && new Date(t.due_date).getTime() < nowIso && t.status !== 'done';
                 const open = openRow === t.id;
                 return (
-                  <div key={t.id} className="border-b border-[var(--c1)]" style={{ animation: `fwRise .5s var(--ease) both`, animationDelay: `${i * 40}ms` }}>
+                  <div key={t.id} id={`task-${t.id}`} className="border-b border-[var(--c1)]" style={{ animation: `fwRise .5s var(--ease) both`, animationDelay: `${i * 40}ms` }}>
                     <button
                       onClick={() => setOpenRow(open ? null : t.id)}
                       className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-3.5 rounded-[10px] px-3 py-4 text-left transition-colors hover:bg-[var(--c1)]/35 md:grid-cols-[auto_minmax(0,1fr)_auto]"
@@ -422,25 +492,8 @@ export function RoomView({
         {/* Aside */}
         <aside>
           <h2 className="mb-3 text-[14px] font-medium text-[var(--c3)]">Anggota</h2>
-          <div className="border-t border-[var(--c1)]">
-            {members.map((m) => {
-              const pts = tasks.filter((t) => t.assignee_id === m.user_id && t.status === 'done').reduce((s, t) => s + (t.poin ?? 0), 0);
-              const max = Math.max(1, ...members.map((mm) => tasks.filter((t) => t.assignee_id === mm.user_id && t.status === 'done').reduce((s, t) => s + (t.poin ?? 0), 0)));
-              return (
-                <div key={m.user_id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 py-2.5">
-                  <i className="grid h-7 w-7 place-items-center rounded-full border border-[var(--c2)] bg-[var(--c1)] text-[12px] font-semibold not-italic text-[var(--c4)]" style={m.peran === 'ketua' ? { borderColor: 'var(--c4)' } : undefined}>
-                    {(m.profiles?.nama ?? '?').slice(0, 2).toUpperCase()}
-                  </i>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[14.5px]">{m.profiles?.nama ?? 'Anggota'}</span>
-                    <span className="mt-1 block h-1 w-full overflow-hidden rounded bg-[var(--c1)]">
-                      <span className="block h-full bg-[var(--c3)] transition-[width] duration-700" style={{ width: `${(pts / max) * 100}%` }} />
-                    </span>
-                  </span>
-                  <span className="text-[13px] font-medium tabular-nums text-[var(--c3)]">{pts}p</span>
-                </div>
-              );
-            })}
+          <div className="border-t border-[var(--c1)] pt-5">
+            <ContributionPie members={pieMembers} centerLabel="poin disetujui" />
           </div>
 
           <h2 className="mb-3 mt-8 text-[14px] font-medium text-[var(--c3)]">Aktivitas</h2>
