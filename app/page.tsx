@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { LandingView } from './views/LandingView';
+import { AuthView } from './views/AuthView';
 import { DashboardViewNew } from './views/DashboardViewNew';
 import { RoomView } from './views/RoomView';
 import {
@@ -379,6 +380,8 @@ export default function Home() {
       setUser(session?.user ?? null);
       if (session?.user) {
         loadDashboard();
+      } else {
+        setView((cur) => (cur === 'landing' || cur === 'auth' ? cur : 'landing'));
       }
     });
 
@@ -429,6 +432,14 @@ export default function Home() {
 
   // Navigasi go
   const go = (targetView: ViewMode, roomIdx?: number) => {
+    if (!user && targetView !== 'landing' && targetView !== 'auth') {
+      setView('auth');
+      return;
+    }
+    if (user && targetView === 'auth') {
+      setView('dashboard');
+      return;
+    }
     if (roomIdx !== undefined) setActiveRoomIndex(roomIdx);
     setView(targetView);
   };
@@ -686,26 +697,11 @@ export default function Home() {
           {/* VIEW: AUTH */}
           {view === 'auth' && (
             <section className="view in" id="v-auth">
-              <div className="wrap authwrap">
-                <div className="authform">
-                  <h1 data-s>Masuk ke Ruang Tim</h1>
-                  <p className="muted" data-s style={{ marginTop: -8 }}>
-                    Lanjutkan ke ruangan kelompok Anda dengan akun Google terverifikasi.
-                  </p>
-                  <button
-                    className="btn solid lg full"
-                    type="button"
-                    onClick={handleGoogleLogin}
-                    disabled={busy}
-                    data-s
-                  >
-                    <span>Masuk dengan Google</span>
-                  </button>
-                  <p className="fine" data-s>
-                    Otentikasi aman via Google OAuth Supabase. Profil dan ruangan Anda otomatis tersinkronisasi.
-                  </p>
-                </div>
-              </div>
+              <AuthView
+                onSignInGoogle={handleGoogleLogin}
+                onBack={() => go('landing')}
+                busy={busy}
+              />
             </section>
           )}
 
@@ -963,27 +959,32 @@ export default function Home() {
         >
           Landing
         </button>
-        <button
-          type="button"
-          aria-pressed={view === 'auth'}
-          onClick={() => go('auth')}
-        >
-          Auth
-        </button>
-        <button
-          type="button"
-          aria-pressed={view === 'dashboard'}
-          onClick={() => go('dashboard')}
-        >
-          Dashboard
-        </button>
-        <button
-          type="button"
-          aria-pressed={view === 'team'}
-          onClick={() => go('team', activeRoomIndex)}
-        >
-          Team Room
-        </button>
+        {!user ? (
+          <button
+            type="button"
+            aria-pressed={view === 'auth'}
+            onClick={() => go('auth')}
+          >
+            Auth
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              aria-pressed={view === 'dashboard'}
+              onClick={() => go('dashboard')}
+            >
+              Dashboard
+            </button>
+            <button
+              type="button"
+              aria-pressed={view === 'team'}
+              onClick={() => go('team', activeRoomIndex)}
+            >
+              Team Room
+            </button>
+          </>
+        )}
       </nav>
 
       {/* Toast Notification */}
