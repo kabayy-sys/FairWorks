@@ -1,647 +1,1310 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { LineBackgroundEngine } from './components/LineBackgroundEngine';
-import { AppHeader } from './components/AppHeader';
-import { AppDock, type DockTarget } from './components/AppDock';
-import { Modal, Toast, Field, Btn } from './components/DesignSystem';
-import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
-import { JoinRoomModal } from './components/JoinRoomModal';
-import { CreateRoomModal } from './components/CreateRoomModal';
-import { DashboardViewNew, type MyTaskRow } from './views/DashboardViewNew';
-import type { DashboardRoomItem } from './components/DashboardView';
-import { LandingView } from './views/LandingView';
-import { AuthView } from './views/AuthView';
-import { RoomView } from './views/RoomView';
-import { DossierReport, ReportData } from './components/DossierReport';
 import { createClient } from '@/lib/supabase/client';
 import {
   getUserDashboardData,
   createRoom,
   joinRoom,
-  submitContract,
-  voteContract,
-  autoLock,
+  takeTask,
+  releaseTask,
+  submitProof,
+  castVote,
   createTask,
-  updateTask,
-  deleteTask,
 } from '@/lib/api/fairworks';
 
-/* ------------------------------------------------------------------
-   Shell transisi antar view (ruang-tim): keluar fade-naik, masuk stagger.
-   Background engine + lebar container mengikuti mood tujuan.
-   ------------------------------------------------------------------ */
-const EXIT_MS = 400;
-
-type TransitionPhase = 'idle' | 'out' | 'in';
-
-function getPhaseStyle(phase: TransitionPhase, reduced: boolean): React.CSSProperties {
-  if (reduced) {
-    return {
-      opacity: phase === 'idle' ? 1 : 0,
-      transition: `opacity ${phase === 'in' ? 0 : 150}ms linear`,
-    };
-  }
-  switch (phase) {
-    case 'out':
-      return {
-        opacity: 0,
-        transform: 'translateY(-8px)',
-        transition: `opacity ${EXIT_MS}ms var(--ease), transform ${EXIT_MS}ms var(--ease)`,
-      };
-    case 'in':
-      return {
-        opacity: 0,
-        transition: 'none',
-      };
-    default:
-      return {
-        opacity: 1,
-        transform: 'translateY(0)',
-        transition: 'opacity .7s var(--ease), transform .7s var(--ease)',
-      };
-  }
-}
+type ViewMode = 'landing' | 'auth' | 'dashboard' | 'team';
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState<DockTarget>('landing');
-  const [displayedView, setDisplayedView] = useState<DockTarget>('landing');
-  const [phase, setPhase] = useState<TransitionPhase>('idle');
-  const [reducedMotion, setReducedMotion] = useState(false);
-
-  // Sesi & data
+  const [view, setView] = useState<ViewMode>('landing');
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>('Pengguna');
-  const [myTaskCount, setMyTaskCount] = useState(0);
-  const [myTotalPoints, setMyTotalPoints] = useState(0);
-  const [myTasks, setMyTasks] = useState<MyTaskRow[]>([]);
 
-  // Modal nama panggilan
-  const [nameModalOpen, setNameModalOpen] = useState(false);
-  const [nameInput, setNameInput] = useState('');
-  const [savingName, setSavingName] = useState(false);
+  // Dashboard Data from Supabase
+  const [rooms, setRooms] = useState<any[]>([]);
+  const [myTasks, setMyTasks] = useState<any[]>([]);
+  const [activeRoomIndex, setActiveRoomIndex] = useState<number>(0);
+  const [activeRoomData, setActiveRoomData] = useState<any>(null);
+  const [selectedMe, setSelectedMe] = useState<string>('');
+  const [tab, setTab] = useState<'all' | 'review' | 'doing' | 'open' | 'done'>('all');
+  const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
 
-  // Ruangan aktif
-  const [activeRoom, setActiveRoom] = useState<{ id: string; nama: string; kode: string; role: 'ketua' | 'anggota' } | null>(null);
-  const [joinModalOpen, setJoinModalOpen] = useState(false);
-  const [createRoomModalOpen, setCreateRoomModalOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  // UI helpers
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [modalState, setModalState] = useState<{
+    type: 'createRoom' | 'joinRoom' | 'addTask' | 'submitProof' | 'revise' | null;
+    task?: any;
+  }>({ type: null });
 
-  // State kontrak (tab Kontrak di dalam ruangan)
-  const [contractLocked, setContractLocked] = useState(false);
-  const [contractDeadline, setContractDeadline] = useState<string | null>(null);
-  const [contractMembers, setContractMembers] = useState<ContractMember[]>([]);
-  const [contractTasks, setContractTasks] = useState<ContractTaskItem[]>([]);
+  // Form states
+  const [inputRoomName, setInputRoomName] = useState('');
+  const [inputJoinCode, setInputJoinCode] = useState('');
+  const [inputTaskTitle, setInputTaskTitle] = useState('');
+  const [inputTaskDesc, setInputTaskDesc] = useState('');
+  const [inputTaskPoints, setInputTaskPoints] = useState('10');
+  const [inputTaskDue, setInputTaskDue] = useState('');
+  const [inputTaskAssignee, setInputTaskAssignee] = useState('');
+  const [inputProofNote, setInputProofNote] = useState('');
+  const [inputProofLink, setInputProofLink] = useState('');
+  const [inputReviseNote, setInputReviseNote] = useState('');
+  const [formErr, setFormErr] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const timersRef = useRef<{ swap?: ReturnType<typeof setTimeout>; raf1?: number; raf2?: number }>({});
+  // Line background canvas ref
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Show toast utility
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setTimeout(() => {
+      setToastMsg((cur) => (cur === msg ? null : cur));
+    }, 2800);
+  };
+
+  /* ------------------------------------------------------------------
+     1. BACKGROUND ENGINE (Kurva Bezier 2.4s Lerp Morph Persis ruang-tim.html)
+     ------------------------------------------------------------------ */
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    setReducedMotion(mq.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
+    const cv = canvasRef.current;
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+
+    const reduce = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const ease = (p: number) => p * p * p * (p * (p * 6 - 15) + 10);
+    const M = 48;
+    let L = 26;
+    let W = 0, H = 0, DPR = 1, capDPR = 1.5;
+    let F = new Float32Array(0), T = new Float32Array(0), R = new Float32Array(0), D = new Float32Array(0);
+    let cur: ViewMode = view;
+    let tr = 1, tStart = 0, t0 = 0, raf = 0, last = 0, slow = 0;
+    let mx = 0, my = 0, act = 0, want = 0, px = 0, py = 0, tpx = 0, tpy = 0, ex = 0, ey = 0;
+
+    const ev = (n: ViewMode, i: number, j: number, t: number) => {
+      const u = j / (M - 1), q = i / (L - 1), m = Math.min(W, H);
+      const bx = (u * 1.2 - 0.1) * W;
+      const by =
+        H * (0.1 + 0.8 * q) +
+        Math.sin(u * 5 + t * 0.5 + i * 0.19) * H * 0.05 * (0.6 + 0.4 * Math.sin(i * 0.31 + t * 0.2)) +
+        Math.sin(u * 12 - t * 0.35 + i * 0.4) * H * 0.012;
+
+      if (n === 'landing') { ex = bx; ey = by; return; }
+      if (n === 'auth') {
+        const dx = bx - W / 2, dy = by - H / 2;
+        const d = Math.sqrt(dx * dx + dy * dy) / (m * 0.46);
+        const th = (3.4 + 0.5 * Math.sin(t * 0.4)) * Math.exp(-d * d);
+        const c = Math.cos(th), sn = Math.sin(th);
+        ex = W / 2 + dx * c - dy * sn;
+        ey = H / 2 + dx * sn + dy * c;
+        return;
+      }
+      if (n === 'dashboard') {
+        const d = (u - ((t * 0.09) % 1.5 - 0.25)) / 0.13;
+        ex = bx;
+        ey =
+          H / 2 +
+          (q - 0.5) * H * 0.88 * (0.78 * Math.cos(u * 3.8 + t * 0.42) + 0.22 * Math.cos(u * 8 - t * 0.3 + q * 1.5)) +
+          Math.sin(u * 2.2 + q * 2.4 + t * 0.3) * H * 0.07 -
+          H * 0.24 * Math.exp(-d * d) * Math.sin(q * 3.1416);
+        return;
+      }
+      // team
+      const y0 = H / 2 + (by - H / 2) * (0.22 + 0.78 * Math.pow(Math.abs(u - 0.5) * 2, 1.4));
+      ex = bx;
+      ey = y0 + Math.sin(u * 6.2832 + q * 4 + t * 0.4) * H * 0.03;
+    };
+
+    const fill = (A: Float32Array, n: ViewMode, t: number) => {
+      for (let i = 0; i < L; i++) {
+        for (let j = 0; j < M; j++) {
+          ev(n, i, j, t);
+          const k = (i * M + j) * 2;
+          A[k] = ex;
+          A[k + 1] = ey;
+        }
+      }
+    };
+
+    const layout = () => {
+      W = window.innerWidth;
+      H = window.innerHeight;
+      L = window.innerWidth < 640 ? 18 : 26;
+      DPR = Math.min(window.devicePixelRatio || 1, capDPR);
+      cv.width = Math.round(W * DPR);
+      cv.height = Math.round(H * DPR);
+      F = new Float32Array(L * M * 2);
+      T = new Float32Array(L * M * 2);
+      R = new Float32Array(L * M * 2);
+      D = new Float32Array(L * M * 2);
+      fill(R, cur, 0);
+      tr = 1;
+    };
+
+    const draw = (t: number) => {
+      const rad = Math.max(120, Math.min(W, H) * 0.2);
+      for (let k = 0; k < D.length; k += 2) {
+        D[k] = R[k];
+        D[k + 1] = R[k + 1];
+        if (act > 0.01) {
+          const dx = D[k] - mx, dy = D[k + 1] - my;
+          const d = Math.sqrt(dx * dx + dy * dy);
+          if (d < rad && d > 0.1) {
+            let pw = 1 - d / rad;
+            pw = pw * pw * 46 * act;
+            D[k] += (dx / d) * pw;
+            D[k + 1] += (dy / d) * pw;
+          }
+        }
+      }
+
+      ctx.setTransform(DPR, 0, 0, DPR, px * DPR, py * DPR);
+      ctx.clearRect(-60, -60, W + 120, H + 120);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = 'rgb(232,232,236)';
+
+      const AL = [0.1, 0.24, 0.15, 0.3];
+      const LW = [0.8, 1.2, 0.9, 1.3];
+      for (let gi = 0; gi < 4; gi++) {
+        ctx.globalAlpha = AL[gi];
+        ctx.lineWidth = LW[gi];
+        ctx.beginPath();
+        for (let i = gi; i < L; i += 4) {
+          const k = i * M * 2;
+          ctx.moveTo(D[k], D[k + 1]);
+          for (let j = 1; j < M - 1; j++) {
+            const a = k + j * 2;
+            const b = a + 2;
+            ctx.quadraticCurveTo(D[a], D[a + 1], (D[a] + D[b]) / 2, (D[a + 1] + D[b + 1]) / 2);
+          }
+          ctx.lineTo(D[k + (M - 1) * 2], D[k + (M - 1) * 2 + 1]);
+        }
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    };
+
+    const step = (now: number, t: number) => {
+      if (!reduce) {
+        act += ((want ? 1 : 0) - act) * 0.06;
+        px += (tpx - px) * 0.05;
+        py += (tpy - py) * 0.05;
+      }
+      fill(T, cur, t);
+      if (tr < 1) {
+        const p = Math.max(0, Math.min(1, (now - tStart) / 2400));
+        const e = ease(p);
+        for (let k = 0; k < R.length; k++) R[k] = F[k] + (T[k] - F[k]) * e;
+        if (p >= 1) tr = 1;
+      } else {
+        R.set(T);
+      }
+      draw(t);
+    };
+
+    const frame = (now: number) => {
+      raf = requestAnimationFrame(frame);
+      if (!t0) t0 = now;
+      if (last) {
+        slow = now - last > 38 ? slow + 1 : Math.max(0, slow - 1);
+        if (slow > 45 && capDPR > 1) {
+          capDPR = 1;
+          slow = 0;
+          layout();
+        }
+      }
+      last = now;
+      step(now, (now - t0) / 1800);
+    };
+
+    layout();
+    if (reduce) step(0, 2);
+    else raf = requestAnimationFrame(frame);
+
+    const onMove = (e: PointerEvent) => {
+      mx = e.clientX;
+      my = e.clientY;
+      want = 1;
+      tpx = (e.clientX - W / 2) * 0.03;
+      tpy = (e.clientY - H / 2) * 0.03;
+    };
+    const onLeave = () => { want = 0; tpx = tpy = 0; };
+    const onResize = () => { layout(); if (reduce) step(0, 2); };
+
+    window.addEventListener('pointermove', onMove, { passive: true });
+    document.addEventListener('pointerleave', onLeave);
+    window.addEventListener('resize', onResize);
+
+    // Dynamic morphing bridge
+    (cv as any)._setMood = (nextView: ViewMode) => {
+      if (nextView === cur) return;
+      if (!reduce) {
+        F.set(R);
+        tr = 0;
+        tStart = performance.now();
+      } else {
+        tr = 1;
+      }
+      cur = nextView;
+      if (reduce) step(0, 2);
+    };
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('pointermove', onMove);
+      document.removeEventListener('pointerleave', onLeave);
+      window.removeEventListener('resize', onResize);
+    };
   }, []);
 
-  // Muat data dashboard asli dari Supabase. Kosong = tampil kosong.
+  // Sinkronisasi view ke canvas engine
+  useEffect(() => {
+    const cv = canvasRef.current;
+    if (cv && (cv as any)._setMood) {
+      (cv as any)._setMood(view);
+    }
+  }, [view]);
+
+  /* ------------------------------------------------------------------
+     2. SUPABASE AUTH & DATA FETCHING
+     ------------------------------------------------------------------ */
   const loadDashboard = useCallback(async () => {
     try {
       const res = await getUserDashboardData();
       if (!res) return;
+      const dName = res.user.nama || res.user.email?.split('@')[0] || 'Pengguna';
+      setUserName(dName);
+      setSelectedMe(res.user.id);
 
-      const displayName = res.user.nama || res.user.email?.split('@')[0] || 'Pengguna';
-      setUserName(displayName);
-
-      // Nama belum pernah diisi: ajak isi nama panggilan sekali
-      if (!res.user.nama) {
-        const supabase = createClient();
-        const { data: { user: u } } = await supabase.auth.getUser();
-        const meta = (u?.user_metadata ?? {}) as Record<string, string>;
-        setNameInput(meta.full_name || meta.name || displayName);
-        setNameModalOpen(true);
-      }
-
-      const rawRooms = (res.rooms ?? []) as Array<{
-        room_id: string;
-        peran: string;
-        rooms: { id: string; nama: string; kode: string; locked_at: string | null };
-      }>;
-      const roomIds = rawRooms.map((r) => r.rooms.id);
-
+      const rawRooms = (res.rooms ?? []) as any[];
+      const rIds = rawRooms.map((r) => r.rooms.id);
       const sb = createClient();
-      const tasksRes = roomIds.length
-        ? await sb.from('tasks').select('room_id, poin, status, assignee_id').in('room_id', roomIds)
-        : { data: [] as Array<{ room_id: string; poin: number | null; status: string; assignee_id: string | null }> | null };
-      const membersRes = roomIds.length
-        ? await sb.from('room_members').select('room_id').in('room_id', roomIds)
-        : { data: [] as Array<{ room_id: string }> | null };
 
-      const tasks = tasksRes.data ?? [];
-      const stats: Record<string, { total: number; done: number; review: number; doing: number; open: number }> = {};
-      let taskCount = 0;
-      let totalPoints = 0;
-      for (const t of tasks) {
-        const poin = t.poin ?? 0;
-        const s = (stats[t.room_id] ??= { total: 0, done: 0, review: 0, doing: 0, open: 0 });
-        s.total += poin;
-        if (t.status === 'done' || t.status === 'review' || t.status === 'doing' || t.status === 'open') {
-          s[t.status] += poin;
-        }
-        if (t.assignee_id === res.user.id) {
-          taskCount += 1;
-          if (t.status === 'done') totalPoints += poin;
-        }
-      }
+      const [tasksRes, membersRes] = await Promise.all([
+        rIds.length ? sb.from('tasks').select('*').in('room_id', rIds) : { data: [] },
+        rIds.length ? sb.from('room_members').select('*, profiles(nama, email)').in('room_id', rIds) : { data: [] },
+      ]);
 
-      const memberCounts: Record<string, number> = {};
-      for (const m of membersRes.data ?? []) {
-        memberCounts[m.room_id] = (memberCounts[m.room_id] ?? 0) + 1;
-      }
+      const allTasks = tasksRes.data ?? [];
+      const allMembers = membersRes.data ?? [];
 
-      setDashboardRooms(
-        rawRooms.map((r) => {
-          const s = stats[r.rooms.id] ?? { total: 0, done: 0, review: 0, doing: 0, open: 0 };
+      const mapped = rawRooms.map((r, i) => {
+        const rTasks = allTasks.filter((t: any) => t.room_id === r.rooms.id);
+        const rMems = allMembers.filter((m: any) => m.room_id === r.rooms.id).map((m: any) => ({
+          id: m.user_id,
+          name: m.profiles?.nama || m.profiles?.email?.split('@')[0] || 'Anggota',
+          lead: m.peran === 'ketua',
+        }));
+
+        const totalPts = rTasks.reduce((s: number, t: any) => s + (t.poin || 0), 0);
+        const donePts = rTasks.filter((t: any) => t.status === 'done').reduce((s: number, t: any) => s + (t.poin || 0), 0);
+        const reviewPts = rTasks.filter((t: any) => t.status === 'review').reduce((s: number, t: any) => s + (t.poin || 0), 0);
+        const doingPts = rTasks.filter((t: any) => t.status === 'doing').reduce((s: number, t: any) => s + (t.poin || 0), 0);
+        const openPts = rTasks.filter((t: any) => t.status === 'open').reduce((s: number, t: any) => s + (t.poin || 0), 0);
+
+        return {
+          id: r.rooms.id,
+          name: r.rooms.nama,
+          code: r.rooms.kode,
+          role: r.peran,
+          members: rMems,
+          tasks: rTasks.map((t: any) => ({
+            id: t.id,
+            title: t.judul,
+            desc: t.deskripsi,
+            points: t.poin,
+            due: t.due_date || new Date().toISOString().slice(0, 10),
+            assignee: t.assignee_id,
+            status: t.status,
+            submit: t.submit_link || t.submit_note ? { link: t.submit_link, note: t.submit_note } : null,
+            revNote: t.revision_note,
+            votes: {},
+          })),
+          stats: {
+            total: totalPts,
+            done: donePts,
+            review: reviewPts,
+            doing: doingPts,
+            open: openPts,
+            pct: totalPts ? Math.round((donePts / totalPts) * 100) : 0,
+          },
+          log: [],
+        };
+      });
+
+      setRooms(mapped);
+
+      // Filter my tasks
+      const mineList = allTasks
+        .filter((t: any) => t.assignee_id === res.user.id && (t.status === 'doing' || t.status === 'review'))
+        .map((t: any) => {
+          const parentRoom = mapped.find((rm: any) => rm.id === t.room_id);
           return {
-            id: r.rooms.id,
-            nama: r.rooms.nama,
-            kode: r.rooms.kode,
-            role: r.peran === 'ketua' ? 'ketua' : 'anggota',
-            membersCount: memberCounts[r.rooms.id] ?? 1,
-            totalPoints: s.total,
-            donePoints: s.done,
-            reviewPoints: s.review,
-            doingPoints: s.doing,
-            openPoints: s.open,
-            status: r.rooms.locked_at ? 'locked' : 'draft',
-          } as DashboardRoomItem;
-        })
-      );
-      setMyTaskCount(taskCount);
-      setMyTotalPoints(totalPoints);
-      setMyTasks((res.myTasks ?? []) as unknown as MyTaskRow[]);
+            t: {
+              id: t.id,
+              title: t.judul,
+              points: t.poin,
+              due: t.due_date || new Date().toISOString().slice(0, 10),
+              status: t.status,
+            },
+            r: parentRoom || { name: 'Ruangan' },
+            roomIndex: mapped.findIndex((rm: any) => rm.id === t.room_id),
+          };
+        });
+      setMyTasks(mineList);
     } catch {
-      // Biarkan dashboard tampil kosong kalau data gagal dimuat
+      // silent
     }
   }, []);
 
   useEffect(() => {
     const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (session?.user) {
+        loadDashboard();
+      }
+    });
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       if (session?.user) {
-        if (event === 'SIGNED_IN') setCurrentView('dashboard');
+        if (event === 'SIGNED_IN') setView('dashboard');
         loadDashboard();
       } else {
-        // Sesi habis / belum login: semua state privat dikosongkan & kembali ke landing
         setUserName('Pengguna');
-        setDashboardRooms([]);
+        setRooms([]);
         setMyTasks([]);
-        setMyTaskCount(0);
-        setMyTotalPoints(0);
-        setActiveRoom(null);
-        setContractLocked(false);
-        setContractDeadline(null);
-        setContractMembers([]);
-        setContractTasks([]);
-        setCurrentView('landing');
+        setView('landing');
       }
     });
 
     return () => subscription.unsubscribe();
   }, [loadDashboard]);
 
-  const signInWithGoogle = async () => {
+  // Active room data lookup
+  const currentRoom = useMemo(() => {
+    if (!rooms.length || activeRoomIndex < 0 || activeRoomIndex >= rooms.length) return null;
+    return rooms[activeRoomIndex];
+  }, [rooms, activeRoomIndex]);
+
+  // Auth Google Login
+  const handleGoogleLogin = async () => {
+    setBusy(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOAuth({
+      await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: {
-          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
-        },
+        options: { redirectTo: window.location.origin },
       });
-      if (error) throw error;
-    } catch (err: unknown) {
-      setToastMessage(err instanceof Error ? err.message : 'Gagal membuka login Google.');
-    }
-  };
-
-  const sendMagic = async (email: string): Promise<boolean> => {
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}` : undefined,
-        },
-      });
-      if (error) throw error;
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  const handleSaveName = async () => {
-    const nama = nameInput.trim();
-    if (!nama || !user) return;
-    setSavingName(true);
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.from('profiles').update({ nama }).eq('id', user.id);
-      if (error) throw error;
-      setUserName(nama);
-      setNameModalOpen(false);
-      setToastMessage(`Siap, dipanggil ${nama} mulai sekarang.`);
-    } catch (err: unknown) {
-      setToastMessage(err instanceof Error ? err.message : 'Gagal menyimpan nama.');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal login Google');
     } finally {
-      setSavingName(false);
+      setBusy(false);
     }
   };
 
-  const signOut = async () => {
+  const handleLogout = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
+    setView('landing');
+    showToast('Telah keluar dari akun');
   };
 
-  // Orkestrasi transisi: out -> swap -> in -> idle (view lama benar-benar diganti)
-  const displayedViewRef = useRef<DockTarget>('landing');
-  useEffect(() => {
-    displayedViewRef.current = displayedView;
-  }, [displayedView]);
+  // Navigasi go
+  const go = (targetView: ViewMode, roomIdx?: number) => {
+    if (roomIdx !== undefined) setActiveRoomIndex(roomIdx);
+    setView(targetView);
+  };
 
-  useEffect(() => {
-    const t = timersRef.current;
-    const clearAll = () => {
-      if (t.swap) clearTimeout(t.swap);
-      if (t.raf1) cancelAnimationFrame(t.raf1);
-      if (t.raf2) cancelAnimationFrame(t.raf2);
-      t.swap = t.raf1 = t.raf2 = undefined;
-    };
-
-    clearAll();
-
-    if (currentView === displayedViewRef.current) {
-      setPhase('idle');
-      return clearAll;
+  /* ------------------------------------------------------------------
+     3. AKSI ROOM & TASK
+     ------------------------------------------------------------------ */
+  const handleCreateRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputRoomName.trim()) {
+      setFormErr('Isi nama ruangan dulu.');
+      return;
     }
+    setBusy(true);
+    setFormErr('');
+    try {
+      const res: any = await createRoom(inputRoomName.trim());
+      setModalState({ type: null });
+      setInputRoomName('');
+      await loadDashboard();
+      showToast(`Ruangan dibuat. Kode: ${res?.kode || ''}`);
+      setView('dashboard');
+    } catch (err: any) {
+      setFormErr(err.message || 'Gagal membuat ruangan.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-    setPhase('out');
-    t.swap = setTimeout(() => {
-      displayedViewRef.current = currentView;
-      setDisplayedView(currentView);
-      const sc = document.getElementById('fw-scroll');
-      if (sc) sc.scrollTo({ top: 0, behavior: 'auto' });
-      setPhase('in');
-      t.raf1 = requestAnimationFrame(() => {
-        t.raf2 = requestAnimationFrame(() => setPhase('idle'));
+  const handleJoinRoom = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const c = inputJoinCode.trim().toUpperCase();
+    if (!c) {
+      setFormErr('Kode tidak boleh kosong.');
+      return;
+    }
+    setBusy(true);
+    setFormErr('');
+    try {
+      await joinRoom(c);
+      setModalState({ type: null });
+      setInputJoinCode('');
+      await loadDashboard();
+      showToast('Berhasil bergabung ke ruangan');
+      setView('dashboard');
+    } catch (err: any) {
+      setFormErr(err.message || 'Kode ruangan tidak ditemukan.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleAddTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!currentRoom) return;
+    if (!inputTaskTitle.trim()) {
+      setFormErr('Isi nama tugas dulu.');
+      return;
+    }
+    const pts = parseInt(inputTaskPoints, 10);
+    if (!pts || pts < 1) {
+      setFormErr('Poin minimal 1.');
+      return;
+    }
+    setBusy(true);
+    setFormErr('');
+    try {
+      await createTask({
+        roomId: currentRoom.id,
+        judul: inputTaskTitle.trim(),
+        deskripsi: inputTaskDesc.trim(),
+        poin: pts,
+        dueDate: inputTaskDue || undefined,
       });
-    }, reducedMotion ? 120 : EXIT_MS);
+      setModalState({ type: null });
+      setInputTaskTitle('');
+      setInputTaskDesc('');
+      setInputTaskPoints('10');
+      setInputTaskDue('');
+      await loadDashboard();
+      showToast('Tugas ditambahkan');
+    } catch (err: any) {
+      setFormErr(err.message || 'Gagal menambahkan tugas.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-    return clearAll;
-  }, [currentView, reducedMotion]);
+  const handleTakeTask = async (taskId: string) => {
+    setBusy(true);
+    try {
+      await takeTask(taskId);
+      await loadDashboard();
+      showToast('Tugas jadi milik Anda.');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal mengambil tugas.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  // State Dashboard Ruangan
-  const [dashboardRooms, setDashboardRooms] = useState<DashboardRoomItem[]>([]);
+  const handleReleaseTask = async (taskId: string) => {
+    setBusy(true);
+    try {
+      await releaseTask(taskId);
+      await loadDashboard();
+      showToast('Tugas dilepas.');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal melepas tugas.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const phaseStyle = getPhaseStyle(phase, reducedMotion);
+  const handleSubmitProof = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!modalState.task) return;
+    setBusy(true);
+    setFormErr('');
+    try {
+      await submitProof(modalState.task.id, inputProofLink.trim(), inputProofNote.trim());
+      setModalState({ type: null });
+      setInputProofLink('');
+      setInputProofNote('');
+      await loadDashboard();
+      showToast('Hasil terkirim. Menunggu persetujuan kelompok.');
+    } catch (err: any) {
+      setFormErr(err.message || 'Gagal mengirim bukti hasil.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  // Laporan dibangun dari ruangan aktif; tanpa ruangan = null (tampil kosong)
-  const reportData: ReportData | null = useMemo(() => {
-    if (!activeRoom) return null;
-    return {
-      room: {
-        id: activeRoom.id,
-        nama: activeRoom.nama,
-        kode: activeRoom.kode,
-        locked_at: contractLocked ? (contractDeadline ?? new Date().toISOString()) : null,
-        created_at: new Date().toISOString(),
-        total_points: contractTasks.reduce((s, t) => s + (t.poin ?? 0), 0),
-        done_points: contractTasks.filter((t) => t.status === 'done').reduce((s, t) => s + (t.poin ?? 0), 0),
-      },
-      members: contractMembers.map((m) => ({
-        user_id: m.id,
-        nama: m.name,
-        peran: m.role,
-        points_done: 0,
-      })),
-      tasks: contractTasks.map((t) => ({
-        id: t.id,
-        judul: t.judul,
-        deskripsi: t.deskripsi ?? null,
-        poin: t.poin,
-        status: t.status,
-        assignee_name: null,
-        submit_link: null,
-        submit_note: null,
-        submit_at: null,
-      })),
-      timeline: [],
-    };
-  }, [activeRoom, contractTasks, contractMembers, contractLocked, contractDeadline]);
+  const handleVote = async (taskId: string, vote: 'ok' | 'revisi', note?: string) => {
+    setBusy(true);
+    try {
+      await castVote(taskId, vote, note);
+      await loadDashboard();
+      showToast(vote === 'ok' ? 'Disetujui.' : 'Catatan revisi terkirim.');
+    } catch (err: any) {
+      showToast(err.message || 'Gagal memberikan suara.');
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const openRoom = (room: { id: string; nama: string; kode: string; role: 'ketua' | 'anggota'; locked?: boolean }) => {
-    setActiveRoom({ id: room.id, nama: room.nama, kode: room.kode, role: room.role });
-    setContractLocked(!!room.locked);
-    setContractTasks([]);
-    setContractMembers(
-      room.role === 'ketua'
-        ? [{ id: user?.id ?? '', name: userName, role: 'ketua', contractVote: 'agree' }]
-        : []
+  const copyRoomCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    showToast(`Kode ruangan ${code} disalin`);
+  };
+
+  /* ------------------------------------------------------------------
+     4. RENDER ICONS & LABELS
+     ------------------------------------------------------------------ */
+  const renderIcon = (st: string) => {
+    if (st === 'done') {
+      return (
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8.5" style={{ fill: 'var(--c4)' }} />
+          <path d="M8 12.4l2.8 2.8L16.2 9.6" style={{ stroke: 'var(--c0)' }} strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+    if (st === 'review') {
+      return (
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8.5" strokeDasharray="3 3" />
+          <path d="M12 7.5V12l3 2" strokeLinecap="round" />
+        </svg>
+      );
+    }
+    if (st === 'doing') {
+      return (
+        <svg viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8.5" />
+          <path d="M12 3.5a8.5 8.5 0 0 1 0 17z" style={{ fill: 'var(--c4)' }} />
+        </svg>
+      );
+    }
+    return (
+      <svg viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8.5" strokeDasharray="1.5 3.5" strokeLinecap="round" />
+      </svg>
     );
-    setContractDeadline(null);
-    setCurrentView('room');
+  };
+
+  const getStatusLabel = (st: string) => {
+    switch (st) {
+      case 'done': return 'Selesai';
+      case 'review': return 'Perlu disetujui';
+      case 'doing': return 'Dikerjakan';
+      default: return 'Bisa diambil';
+    }
+  };
+
+  const formatDue = (dateStr: string) => {
+    if (!dateStr) return '';
+    const diffDays = Math.round((new Date(dateStr).getTime() - new Date().setHours(0, 0, 0, 0)) / 864e5);
+    if (diffDays < 0) return `terlambat ${-diffDays} hari`;
+    if (diffDays === 0) return 'hari ini';
+    if (diffDays === 1) return 'besok';
+    return `${diffDays} hari lagi`;
   };
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[var(--c0)] text-[var(--c4)]">
-      <style>{`
-        @media (prefers-reduced-motion: reduce) {
-          .fw-stagger > *, .fw-leave { animation: none; }
-        }
-      `}</style>
+    <>
+      <canvas ref={canvasRef} id="bg-canvas" className="bg-canvas" aria-hidden="true" />
 
-      <LineBackgroundEngine mood={displayedView} />
-
-      <AppHeader
-        loggedIn={!!user}
-        userName={userName}
-        onGoLanding={() => setCurrentView('landing')}
-        onOpenName={() => {
-          setNameInput(userName);
-          setNameModalOpen(true);
-        }}
-        onSignOut={signOut}
-      />
-
-      <main
-        id="fw-scroll"
-        className="fixed inset-0 z-10 overflow-y-auto overflow-x-hidden"
-        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--c2) transparent' }}
-      >
-        <div className="grid min-h-full pb-28" style={{ paddingTop: 'calc(56px + env(safe-area-inset-top, 0px))' }}>
-          <div className="min-w-0 [grid-area:1/1]">
-            <div style={{ ...phaseStyle, willChange: 'opacity, transform' }}>
-              <div className="fw-stagger">
-                {displayedView === 'landing' && <LandingView onStart={() => setCurrentView('auth')} />}
-
-                {displayedView === 'auth' && <AuthView onSignInGoogle={signInWithGoogle} onSendMagic={sendMagic} />}
-
-                {displayedView === 'dashboard' && (
-                  <DashboardViewNew
-                    userName={userName}
-                    rooms={dashboardRooms}
-                    myTasks={myTasks}
-                    onSelectRoom={(room) => openRoom({ ...room, locked: room.status === 'locked' })}
-                    onJoin={() => setJoinModalOpen(true)}
-                    onCreate={() => setCreateRoomModalOpen(true)}
-                  />
-                )}
-
-                {displayedView === 'room' &&
-                  (activeRoom ? (
-                    <RoomView
-                      roomId={activeRoom.id}
-                      roomName={activeRoom.nama}
-                      roomCode={activeRoom.kode}
-                      userId={user?.id ?? ''}
-                      isOwner={activeRoom.role === 'ketua'}
-                      onToast={setToastMessage}
-                      onBack={() => setCurrentView('dashboard')}
-                      contractLocked={contractLocked}
-                      contractSlot={
-                        <ContractFlow
-                          roomName={activeRoom.nama}
-                          roomCode={activeRoom.kode}
-                          isOwner={activeRoom.role === 'ketua'}
-                          isLocked={contractLocked}
-                          lockedAt={contractLocked ? new Date().toISOString() : null}
-                          contractDeadline={contractDeadline}
-                          members={contractMembers}
-                          tasks={contractTasks}
-                          currentUserId={user?.id ?? ''}
-                          onProceedToActiveRoom={() => {
-                            setContractLocked(true);
-                            setToastMessage('Kontrak terkunci! Beralih ke papan tugas.');
-                          }}
-                          onAddTask={async (newTask) => {
-                            try {
-                              await createTask({
-                                roomId: activeRoom.id,
-                                judul: newTask.judul,
-                                deskripsi: newTask.deskripsi || undefined,
-                                poin: newTask.poin,
-                                dueDate: newTask.dueDate || undefined,
-                              });
-                              const item: ContractTaskItem = {
-                                ...newTask,
-                                id: `db-${Date.now()}`,
-                                status: 'open',
-                                postLockPending: !!newTask.postLockPending,
-                                postLockVotes: newTask.postLockPending ? [] : undefined,
-                              };
-                              setContractTasks((prev) => [...prev, item]);
-                              setToastMessage(
-                                newTask.postLockPending ? 'Tugas diajukan ke anggota.' : 'Tugas masuk draf kontrak.'
-                              );
-                            } catch (err: unknown) {
-                              setToastMessage(err instanceof Error ? err.message : 'Gagal menambah tugas.');
-                            }
-                          }}
-                          onEditTask={async (taskId, updates) => {
-                            const dbId = taskId.startsWith('db-') ? null : taskId;
-                            try {
-                              if (dbId) {
-                                await updateTask(dbId, {
-                                  judul: updates.judul,
-                                  deskripsi: updates.deskripsi || undefined,
-                                  poin: updates.poin,
-                                  dueDate: updates.dueDate || undefined,
-                                });
-                              }
-                              setContractTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
-                              setToastMessage('Tugas diperbarui.');
-                            } catch (err: unknown) {
-                              setToastMessage(err instanceof Error ? err.message : 'Gagal mengubah tugas.');
-                            }
-                          }}
-                          onDeleteTask={async (taskId) => {
-                            const dbId = taskId.startsWith('db-') ? null : taskId;
-                            try {
-                              if (dbId) await deleteTask(dbId);
-                              setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
-                              setToastMessage('Tugas dihapus dari kontrak.');
-                            } catch (err: unknown) {
-                              setToastMessage(err instanceof Error ? err.message : 'Gagal menghapus tugas.');
-                            }
-                          }}
-                          onSubmitContract={async () => {
-                            try {
-                              const res = (await submitContract(activeRoom.id)) as { contract_deadline?: string };
-                              const dl = res?.contract_deadline ?? new Date(Date.now() + 24 * 3600 * 1000).toISOString();
-                              setContractDeadline(dl);
-                              setToastMessage('Kontrak diajukan! Batas 24 jam dimulai.');
-                            } catch (err: unknown) {
-                              setToastMessage(err instanceof Error ? err.message : 'Gagal mengajukan kontrak.');
-                            }
-                          }}
-                          onVoteContract={async (agree, note) => {
-                            try {
-                              const res = (await voteContract(activeRoom.id, agree, note || undefined)) as { locked?: boolean };
-                              setContractMembers((prev) =>
-                                prev.map((m) =>
-                                  m.id === user?.id
-                                    ? { ...m, contractVote: agree ? 'agree' : 'request_changes', contractVoteNote: note || null }
-                                    : m
-                                )
-                              );
-                              if (res?.locked) {
-                                setContractLocked(true);
-                                setToastMessage('Semua setuju — kontrak resmi terkunci!');
-                              } else {
-                                setToastMessage(agree ? 'Persetujuan tercatat.' : 'Catatan revisi dikirim.');
-                              }
-                            } catch (err: unknown) {
-                              setToastMessage(err instanceof Error ? err.message : 'Gagal mencatat suara.');
-                            }
-                          }}
-                          onVotePostLockTask={(taskId, agree) => {
-                            setContractTasks((prev) =>
-                              agree
-                                ? prev.map((t) => (t.id === taskId ? { ...t, postLockPending: false } : t))
-                                : prev.filter((t) => t.id !== taskId)
-                            );
-                            setToastMessage(agree ? 'Tugas pasca-lock disetujui.' : 'Tugas pasca-lock ditolak.');
-                          }}
-                          onAutoLockTrigger={async () => {
-                            try {
-                              await autoLock(activeRoom.id);
-                            } catch {
-                              // diam — auto lock hanya upaya terbaik
-                            }
-                            setContractLocked(true);
-                            setContractDeadline(null);
-                            setToastMessage('Waktu 24 jam habis: kontrak terkunci otomatis.');
-                          }}
-                        />
-                      }
-                    />
-                  ) : (
-                    <div className="mx-auto w-full max-w-[1040px] px-5 pt-10">
-                      <div className="grid gap-3 border border-dashed border-[var(--c2)] rounded-[18px] py-12 text-center">
-                        <p className="text-sm text-[var(--c3)]">Belum ada ruangan aktif.</p>
-                        <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--c3)]">
-                          Pilih ruangan dari dashboard terlebih dahulu.
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-
-                {displayedView === 'laporan' && (
-                  <div className="mx-auto w-full max-w-[860px] px-5 pt-8">
-                    <DossierReport initialData={reportData} onBack={() => setCurrentView('dashboard')} />
-                  </div>
-                )}
-              </div>
-            </div>
+      {/* Top Header */}
+      <header className="top on" id="top">
+        <div className="wrap bar0">
+          <button className="brand" type="button" onClick={() => go(user ? 'dashboard' : 'landing')}>
+            <i />
+            Ruang Tim
+          </button>
+          <div className="topr">
+            {user ? (
+              <>
+                <span className="user">
+                  <i>{userName.charAt(0).toUpperCase()}</i>
+                  {userName}
+                </span>
+                <button className="btn text" type="button" onClick={handleLogout}>
+                  Keluar
+                </button>
+              </>
+            ) : view === 'auth' ? (
+              <button className="btn text" type="button" onClick={() => go('landing')}>
+                Kembali
+              </button>
+            ) : (
+              <>
+                <button className="btn text" type="button" onClick={() => go('auth')}>
+                  Masuk
+                </button>
+                <button className="btn solid sm" type="button" onClick={() => go('auth')}>
+                  Mulai
+                </button>
+              </>
+            )}
           </div>
+        </div>
+      </header>
+
+      {/* Main Scroller Stage */}
+      <main className="scroll" id="scroll">
+        <div className="stage">
+          {/* VIEW: LANDING */}
+          {view === 'landing' && (
+            <section className="view in" id="v-landing">
+              <div className="wrap">
+                <div className="hero">
+                  <h1 data-s>Bagi tugas kelompok dengan adil, dan lihat progresnya.</h1>
+                  <p className="lead" data-s>
+                    Buat ruangan, beri poin pada tiap tugas, lalu biarkan teman satu kelompok memeriksa hasilnya. Poin baru dihitung setelah disetujui.
+                  </p>
+                  <div className="ctas" data-s>
+                    <button className="btn solid lg" type="button" onClick={() => go(user ? 'dashboard' : 'auth')}>
+                      Mulai sekarang
+                    </button>
+                    {rooms.length > 0 && (
+                      <button className="btn text lg" type="button" onClick={() => go('team', 0)}>
+                        Buka ruangan Anda
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="steps">
+                  <h2 data-s>Cara kerjanya</h2>
+                  <ol>
+                    <li data-s>
+                      <b>1</b>
+                      <h3>Buat ruangan</h3>
+                      <p>Anda jadi ketua. Teman bergabung lewat kode enam karakter.</p>
+                    </li>
+                    <li data-s>
+                      <b>2</b>
+                      <h3>Bagi tugas dan poin</h3>
+                      <p>Tiap tugas punya poin dan tenggat. Siapa pun bisa mengambil tugas yang masih terbuka.</p>
+                    </li>
+                    <li data-s>
+                      <b>3</b>
+                      <h3>Teman memeriksa</h3>
+                      <p>Setelah hasil dikirim, mayoritas teman perlu menyetujui sebelum poinnya dihitung.</p>
+                    </li>
+                  </ol>
+                </div>
+                <div className="foot" data-s>
+                  FairWorks — platform pembagian tugas kelompok anti free-rider.
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* VIEW: AUTH */}
+          {view === 'auth' && (
+            <section className="view in" id="v-auth">
+              <div className="wrap authwrap">
+                <div className="authform">
+                  <h1 data-s>Masuk ke Ruang Tim</h1>
+                  <p className="muted" data-s style={{ marginTop: -8 }}>
+                    Lanjutkan ke ruangan kelompok Anda dengan akun Google terverifikasi.
+                  </p>
+                  <button
+                    className="btn solid lg full"
+                    type="button"
+                    onClick={handleGoogleLogin}
+                    disabled={busy}
+                    data-s
+                  >
+                    <span>Masuk dengan Google</span>
+                  </button>
+                  <p className="fine" data-s>
+                    Otentikasi aman via Google OAuth Supabase. Profil dan ruangan Anda otomatis tersinkronisasi.
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* VIEW: DASHBOARD */}
+          {view === 'dashboard' && (
+            <section className="view in" id="v-dashboard">
+              <div className="wrap page">
+                <div className="phead" data-s>
+                  <div>
+                    <h1>Ruangan Anda</h1>
+                    <p className="sub">
+                      {rooms.length} ruangan aktif {myTasks.length ? `· ${myTasks.length} tugas Anda sedang berjalan` : ''}
+                    </p>
+                  </div>
+                  <div className="pact">
+                    <button className="btn" type="button" onClick={() => setModalState({ type: 'joinRoom' })}>
+                      Gabung dengan kode
+                    </button>
+                    <button className="btn solid" type="button" onClick={() => setModalState({ type: 'createRoom' })}>
+                      Buat ruangan
+                    </button>
+                  </div>
+                </div>
+
+                <div className="cols">
+                  <section data-s>
+                    <div className="rlist">
+                      {rooms.length > 0 ? (
+                        rooms.map((r, i) => (
+                          <button
+                            key={r.id}
+                            className="rrow"
+                            type="button"
+                            onClick={() => go('team', i)}
+                          >
+                            <span className="rname">
+                              <b>{r.name}</b>
+                              <small>
+                                {r.members.length} anggota · {r.tasks.filter((t: any) => t.status !== 'done').length} tugas belum selesai · {r.code}
+                              </small>
+                            </span>
+                            <span className="rprog">
+                              <span className="bar">
+                                <i style={{ width: `${r.stats.pct}%` }} />
+                              </span>
+                              <em>{r.stats.pct}%</em>
+                            </span>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="empty">
+                          <h3>Belum ada ruangan</h3>
+                          <p>Buat ruangan baru atau gabung ke ruangan teman dengan kode.</p>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+
+                  <aside data-s>
+                    <h2>Tugas Anda</h2>
+                    <div>
+                      {myTasks.length > 0 ? (
+                        myTasks.map((x, idx) => (
+                          <button
+                            key={idx}
+                            className="mrow2"
+                            type="button"
+                            onClick={() => go('team', x.roomIndex)}
+                          >
+                            <b>{x.t.title}</b>
+                            <small className={x.t.status === 'doing' && formatDue(x.t.due).includes('terlambat') ? 'late' : ''}>
+                              {x.r.name} · {x.t.status === 'review' ? 'menunggu persetujuan' : formatDue(x.t.due)}
+                            </small>
+                          </button>
+                        ))
+                      ) : (
+                        <p className="muted">Tidak ada tugas yang sedang berjalan.</p>
+                      )}
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {/* VIEW: TEAM ROOM */}
+          {view === 'team' && currentRoom && (
+            <section className="view in" id="v-team">
+              <div className="wrap page">
+                <nav className="crumb" data-s aria-label="Lokasi">
+                  <button className="lnk" type="button" onClick={() => go('dashboard')}>
+                    Ruangan
+                  </button>
+                  <span aria-hidden="true">/</span>
+                  <span>{currentRoom.name}</span>
+                </nav>
+
+                <div className="phead" data-s>
+                  <div>
+                    <h1>{currentRoom.name}</h1>
+                    <p className="sub">
+                      {currentRoom.members.length} anggota ·{' '}
+                      {currentRoom.role === 'ketua' ? 'Anda ketua' : 'Anda anggota'} · Kode{' '}
+                      <button
+                        className="code"
+                        type="button"
+                        onClick={() => copyRoomCode(currentRoom.code)}
+                      >
+                        {currentRoom.code}
+                      </button>
+                    </p>
+                  </div>
+                  <div className="pact">
+                    <button
+                      className="btn solid"
+                      type="button"
+                      onClick={() => setModalState({ type: 'addTask' })}
+                    >
+                      Tambah tugas
+                    </button>
+                  </div>
+                </div>
+
+                {/* Ringkasan Poin & Progress Bar Multi-Segment */}
+                <div className="sum" data-s>
+                  <div className="pct">
+                    {currentRoom.stats.pct}
+                    <small>%</small>
+                  </div>
+                  <div>
+                    <p>
+                      <b>{currentRoom.stats.done}</b> dari <b>{currentRoom.stats.total}</b> poin sudah disetujui
+                      {currentRoom.stats.review > 0 && ` · ${currentRoom.stats.review} poin menunggu persetujuan`}
+                    </p>
+                    <div className="track">
+                      <i
+                        className="seg done"
+                        style={{
+                          width: `${currentRoom.stats.total ? (currentRoom.stats.done / currentRoom.stats.total) * 100 : 0}%`,
+                        }}
+                      />
+                      <i
+                        className="seg review"
+                        style={{
+                          width: `${currentRoom.stats.total ? (currentRoom.stats.review / currentRoom.stats.total) * 100 : 0}%`,
+                        }}
+                      />
+                      <i
+                        className="seg doing"
+                        style={{
+                          width: `${currentRoom.stats.total ? (currentRoom.stats.doing / currentRoom.stats.total) * 100 : 0}%`,
+                        }}
+                      />
+                      <i
+                        className="seg open"
+                        style={{
+                          width: `${currentRoom.stats.total ? (currentRoom.stats.open / currentRoom.stats.total) * 100 : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="legend">
+                      <span><i className="d" />Disetujui</span>
+                      <span><i className="r" />Perlu disetujui</span>
+                      <span><i className="g" />Dikerjakan</span>
+                      <span><i />Belum diambil</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="cols">
+                  {/* Kolom Kiri: Tab & List Tugas */}
+                  <section data-s aria-label="Daftar tugas">
+                    <div className="tabs" role="tablist">
+                      {[
+                        ['all', 'Semua'],
+                        ['review', 'Perlu disetujui'],
+                        ['doing', 'Dikerjakan'],
+                        ['open', 'Bisa diambil'],
+                        ['done', 'Selesai'],
+                      ].map(([k, label]) => {
+                        const cnt =
+                          k === 'all'
+                            ? currentRoom.tasks.length
+                            : currentRoom.tasks.filter((t: any) => t.status === k).length;
+                        return (
+                          <button
+                            key={k}
+                            type="button"
+                            role="tab"
+                            aria-selected={tab === k}
+                            onClick={() => setTab(k as any)}
+                          >
+                            {label}
+                            <em>{cnt}</em>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="tlist">
+                      {currentRoom.tasks
+                        .filter((t: any) => tab === 'all' || t.status === tab)
+                        .map((t: any) => {
+                          const isOpen = !!openIds[t.id];
+                          const isMyTask = t.assignee === user?.id;
+                          const assigneeMember = currentRoom.members.find((m: any) => m.id === t.assignee);
+                          const who = assigneeMember ? (isMyTask ? `${assigneeMember.name} (Anda)` : assigneeMember.name) : 'Belum ada yang mengambil';
+
+                          return (
+                            <article key={t.id} className={`trow ${isOpen ? 'open' : ''}`}>
+                              <div className="tmain">
+                                <span className={`sti st-${t.status}`}>
+                                  {renderIcon(t.status)}
+                                </span>
+                                <button
+                                  className="ttl"
+                                  type="button"
+                                  onClick={() => setOpenIds((prev) => ({ ...prev, [t.id]: !prev[t.id] }))}
+                                  aria-expanded={isOpen}
+                                >
+                                  <h3>{t.title}</h3>
+                                  <p className="tmeta">
+                                    <span className="stl">{getStatusLabel(t.status)}</span> · {who} · {t.points} poin · {formatDue(t.due)}
+                                  </p>
+                                </button>
+                                <div className="tact">
+                                  {t.status === 'doing' && isMyTask && (
+                                    <button
+                                      className="btn solid sm"
+                                      type="button"
+                                      onClick={() => setModalState({ type: 'submitProof', task: t })}
+                                    >
+                                      Kirim hasil
+                                    </button>
+                                  )}
+                                  {(t.status === 'open' || (t.status === 'doing' && !isMyTask && formatDue(t.due).includes('terlambat'))) && (
+                                    <button
+                                      className="btn solid sm"
+                                      type="button"
+                                      onClick={() => handleTakeTask(t.id)}
+                                    >
+                                      {t.status === 'open' ? 'Ambil' : 'Ambil alih'}
+                                    </button>
+                                  )}
+                                  {t.status === 'review' && !isMyTask && (
+                                    <>
+                                      <button
+                                        className="btn solid sm"
+                                        type="button"
+                                        onClick={() => handleVote(t.id, 'ok')}
+                                      >
+                                        Setujui
+                                      </button>
+                                      <button
+                                        className="btn sm"
+                                        type="button"
+                                        onClick={() => setModalState({ type: 'revise', task: t })}
+                                      >
+                                        Minta revisi
+                                      </button>
+                                    </>
+                                  )}
+                                  {t.status === 'review' && isMyTask && (
+                                    <span className="done-note">Menunggu persetujuan teman</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="tmore">
+                                <div className="tdet">
+                                  {t.desc && <p>{t.desc}</p>}
+                                  {t.submit && (
+                                    <p className="nt">
+                                      <b>Catatan pengirim:</b> {t.submit.note || '-'}{' '}
+                                      {t.submit.link && (
+                                        <a href={t.submit.link} target="_blank" rel="noreferrer" className="lnk ml-1">
+                                          {t.submit.link}
+                                        </a>
+                                      )}
+                                    </p>
+                                  )}
+                                  {t.revNote && (
+                                    <p className="nt">
+                                      <b>Perlu revisi:</b> {t.revNote}
+                                    </p>
+                                  )}
+                                  {t.status === 'doing' && isMyTask && (
+                                    <p>
+                                      <button
+                                        className="lnk"
+                                        type="button"
+                                        onClick={() => handleReleaseTask(t.id)}
+                                      >
+                                        Lepas tugas ini
+                                      </button>
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </article>
+                          );
+                        })}
+                    </div>
+                  </section>
+
+                  {/* Kolom Kanan: Anggota & Aktivitas */}
+                  <aside data-s>
+                    <h2>Anggota</h2>
+                    <div id="ppl">
+                      {currentRoom.members.map((m: any) => {
+                        const mine = currentRoom.tasks.filter((t: any) => t.assignee === m.id);
+                        const actCount = mine.filter((t: any) => t.status !== 'done').length;
+                        const ptsDone = mine
+                          .filter((t: any) => t.status === 'done')
+                          .reduce((s: number, t: any) => s + t.points, 0);
+                        const pctDone = currentRoom.stats.total
+                          ? Math.round((ptsDone / currentRoom.stats.total) * 100)
+                          : 0;
+
+                        return (
+                          <div key={m.id} className="prow">
+                            <span className={`av ${m.lead ? 'lead' : ''}`} aria-hidden="true">
+                              {m.name.charAt(0).toUpperCase()}
+                            </span>
+                            <div>
+                              <div className="pn">
+                                {m.name} {m.id === user?.id ? '(Anda)' : ''}
+                                {m.lead && <span className="role">Ketua</span>}
+                              </div>
+                              <small>{actCount} tugas aktif</small>
+                              <span className="bar">
+                                <i style={{ width: `${pctDone}%` }} />
+                              </span>
+                            </div>
+                            <b className="pp">{ptsDone} poin</b>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </aside>
+                </div>
+              </div>
+            </section>
+          )}
         </div>
       </main>
 
-      <AppDock loggedIn={!!user} current={currentView} onNavigate={setCurrentView} />
+      {/* MODAL DIALOGS */}
+      {modalState.type && (
+        <div className="ov" onClick={(e) => { if (e.target === e.currentTarget) setModalState({ type: null }); }}>
+          <div className="modal" role="dialog" aria-modal="true">
+            {/* Modal: Buat Ruangan */}
+            {modalState.type === 'createRoom' && (
+              <form onSubmit={handleCreateRoom} noValidate>
+                <h2>Buat ruangan</h2>
+                <p className="sub">Anda jadi ketua. Teman bergabung lewat kode.</p>
+                <label className="fld">
+                  Nama ruangan
+                  <input
+                    value={inputRoomName}
+                    onChange={(e) => setInputRoomName(e.target.value)}
+                    maxLength={40}
+                    placeholder="Contoh: Tugas Besar Statistika"
+                    autoFocus
+                  />
+                </label>
+                {formErr && <div className="err on">{formErr}</div>}
+                <div className="mact">
+                  <button className="btn text" type="button" onClick={() => setModalState({ type: null })}>
+                    Batal
+                  </button>
+                  <button className="btn solid" type="submit" disabled={busy}>
+                    {busy ? 'Menyimpan...' : 'Buat ruangan'}
+                  </button>
+                </div>
+              </form>
+            )}
 
-      {/* Modal nama panggilan */}
-      <Modal isOpen={nameModalOpen} onClose={() => setNameModalOpen(false)} title="Nama Panggilan">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSaveName();
-          }}
-          className="grid gap-4"
-        >
-          <p className="-mt-1 text-[13px] text-[var(--c3)]">
-            Nama ini yang tampil di ruangan tim, kontrak, dan laporan.
-          </p>
-          <Field
-            label="Panggil kamu apa?"
-            type="text"
-            placeholder="Contoh: Raken"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            maxLength={40}
-            required
-            autoFocus
-          />
-          <div className="flex justify-end gap-2">
-            <Btn type="button" variant="ghost" onClick={() => setNameModalOpen(false)} className="min-h-[38px] cursor-pointer px-4 text-xs">
-              Nanti saja
-            </Btn>
-            <Btn type="button" onClick={handleSaveName} loading={savingName} className="min-h-[38px] cursor-pointer px-5 text-xs">
-              Simpan
-            </Btn>
+            {/* Modal: Gabung dengan Kode */}
+            {modalState.type === 'joinRoom' && (
+              <form onSubmit={handleJoinRoom} noValidate>
+                <h2>Gabung dengan kode</h2>
+                <p className="sub">Masukkan kode ruangan yang diberikan ketua kelompok.</p>
+                <label className="fld">
+                  Kode ruangan
+                  <input
+                    value={inputJoinCode}
+                    onChange={(e) => setInputJoinCode(e.target.value)}
+                    maxLength={7}
+                    placeholder="ABC-123"
+                    autoCapitalize="characters"
+                    autoFocus
+                  />
+                </label>
+                {formErr && <div className="err on">{formErr}</div>}
+                <div className="mact">
+                  <button className="btn text" type="button" onClick={() => setModalState({ type: null })}>
+                    Batal
+                  </button>
+                  <button className="btn solid" type="submit" disabled={busy}>
+                    {busy ? 'Memeriksa...' : 'Gabung'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Modal: Tambah Tugas */}
+            {modalState.type === 'addTask' && (
+              <form onSubmit={handleAddTask} noValidate>
+                <h2>Tambah tugas</h2>
+                <p className="sub">Tiap tugas memiliki bobot poin dan tenggat waktu.</p>
+                <label className="fld">
+                  Nama tugas
+                  <input
+                    value={inputTaskTitle}
+                    onChange={(e) => setInputTaskTitle(e.target.value)}
+                    maxLength={60}
+                    placeholder="Contoh: Susun tinjauan pustaka"
+                    autoFocus
+                  />
+                </label>
+                <label className="fld">
+                  Keterangan (boleh dikosongkan)
+                  <textarea
+                    value={inputTaskDesc}
+                    onChange={(e) => setInputTaskDesc(e.target.value)}
+                    maxLength={200}
+                  />
+                </label>
+                <div className="two">
+                  <label className="fld">
+                    Poin
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={inputTaskPoints}
+                      onChange={(e) => setInputTaskPoints(e.target.value)}
+                    />
+                  </label>
+                  <label className="fld">
+                    Tenggat
+                    <input
+                      type="date"
+                      value={inputTaskDue}
+                      onChange={(e) => setInputTaskDue(e.target.value)}
+                    />
+                  </label>
+                </div>
+                {formErr && <div className="err on">{formErr}</div>}
+                <div className="mact">
+                  <button className="btn text" type="button" onClick={() => setModalState({ type: null })}>
+                    Batal
+                  </button>
+                  <button className="btn solid" type="submit" disabled={busy}>
+                    {busy ? 'Menyimpan...' : 'Tambah tugas'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Modal: Kirim Bukti Pengerjaan */}
+            {modalState.type === 'submitProof' && modalState.task && (
+              <form onSubmit={handleSubmitProof} noValidate>
+                <h2>Kirim hasil</h2>
+                <p className="sub">
+                  {modalState.task.title}. Teman satu kelompok akan memeriksa sebelum poin dihitung.
+                </p>
+                <label className="fld">
+                  Catatan untuk teman
+                  <textarea
+                    value={inputProofNote}
+                    onChange={(e) => setInputProofNote(e.target.value)}
+                    maxLength={240}
+                    placeholder="Apa saja yang sudah dikerjakan?"
+                    autoFocus
+                  />
+                </label>
+                <label className="fld">
+                  Tautan hasil (Google Drive / GitHub / Figma)
+                  <input
+                    value={inputProofLink}
+                    onChange={(e) => setInputProofLink(e.target.value)}
+                    maxLength={120}
+                    placeholder="https://"
+                  />
+                </label>
+                {formErr && <div className="err on">{formErr}</div>}
+                <div className="mact">
+                  <button className="btn text" type="button" onClick={() => setModalState({ type: null })}>
+                    Batal
+                  </button>
+                  <button className="btn solid" type="submit" disabled={busy}>
+                    {busy ? 'Mengirim...' : 'Kirim hasil'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* Modal: Minta Revisi */}
+            {modalState.type === 'revise' && modalState.task && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!inputReviseNote.trim()) {
+                    setFormErr('Tulis dulu bagian yang perlu diperbaiki.');
+                    return;
+                  }
+                  handleVote(modalState.task.id, 'revisi', inputReviseNote.trim());
+                  setModalState({ type: null });
+                  setInputReviseNote('');
+                }}
+                noValidate
+              >
+                <h2>Minta revisi</h2>
+                <p className="sub">{modalState.task.title}. Tulis bagian yang perlu diperbaiki.</p>
+                <label className="fld">
+                  Catatan revisi
+                  <textarea
+                    value={inputReviseNote}
+                    onChange={(e) => setInputReviseNote(e.target.value)}
+                    autoFocus
+                  />
+                </label>
+                {formErr && <div className="err on">{formErr}</div>}
+                <div className="mact">
+                  <button className="btn text" type="button" onClick={() => setModalState({ type: null })}>
+                    Batal
+                  </button>
+                  <button className="btn solid" type="submit" disabled={busy}>
+                    Kirim catatan
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
-        </form>
-      </Modal>
+        </div>
+      )}
 
-      {/* Modal gabung ruangan */}
-      <JoinRoomModal
-        isOpen={joinModalOpen}
-        onClose={() => setJoinModalOpen(false)}
-        onJoin={async (code) => {
-          try {
-            const res = (await joinRoom(code)) as { room_id: string; nama: string; already_member: boolean };
-            setJoinModalOpen(false);
-            setToastMessage(
-              res.already_member
-                ? `Kamu sudah jadi anggota ruangan "${res.nama}".`
-                : `Berhasil bergabung ke ruangan "${res.nama}"!`
-            );
-            await loadDashboard();
-            const joined = dashboardRooms.find((r) => r.id === res.room_id);
-            openRoom({
-              id: res.room_id,
-              nama: res.nama,
-              kode: code.toUpperCase(),
-              role: joined?.role === 'ketua' ? 'ketua' : 'anggota',
-            });
-          } catch (err: unknown) {
-            setToastMessage(err instanceof Error ? err.message : 'Gagal masuk ruangan.');
-          }
-        }}
-      />
+      {/* Dock Navigasi Cepat (Pratinjau) */}
+      <nav className="proto" aria-label="Pratinjau halaman">
+        <button
+          type="button"
+          aria-pressed={view === 'landing'}
+          onClick={() => go('landing')}
+        >
+          Landing
+        </button>
+        <button
+          type="button"
+          aria-pressed={view === 'auth'}
+          onClick={() => go('auth')}
+        >
+          Auth
+        </button>
+        <button
+          type="button"
+          aria-pressed={view === 'dashboard'}
+          onClick={() => go('dashboard')}
+        >
+          Dashboard
+        </button>
+        <button
+          type="button"
+          aria-pressed={view === 'team'}
+          onClick={() => go('team', activeRoomIndex)}
+        >
+          Team Room
+        </button>
+      </nav>
 
-      {/* Modal buat ruangan */}
-      <CreateRoomModal
-        isOpen={createRoomModalOpen}
-        onClose={() => setCreateRoomModalOpen(false)}
-        onCreate={async (name: string) => {
-          try {
-            // Kode ruangan digenerate oleh RPC create_room di Supabase
-            const created = (await createRoom(name)) as { room_id: string; kode: string; nama: string };
-            const newRoom: DashboardRoomItem = {
-              id: created.room_id,
-              nama: created.nama || name,
-              kode: created.kode,
-              role: 'ketua',
-              membersCount: 1,
-              totalPoints: 0,
-              donePoints: 0,
-              reviewPoints: 0,
-              doingPoints: 0,
-              openPoints: 0,
-              status: 'draft',
-            };
-            setDashboardRooms((prev) => [newRoom, ...prev]);
-            setToastMessage(`Ruangan "${newRoom.nama}" dibuat! Kode: ${newRoom.kode}`);
-            openRoom({ id: newRoom.id, nama: newRoom.nama, kode: newRoom.kode, role: 'ketua' });
-          } catch (err: unknown) {
-            setToastMessage(err instanceof Error ? err.message : 'Gagal membuat ruangan.');
-          }
-        }}
-      />
-
-      {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
-    </div>
+      {/* Toast Notification */}
+      <div className={`toast ${!toastMsg ? 'off' : ''}`} role="status" aria-live="polite">
+        {toastMsg}
+      </div>
+    </>
   );
 }
