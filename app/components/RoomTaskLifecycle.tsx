@@ -14,6 +14,8 @@ import {
   TaskRow,
 } from './DesignSystem';
 import { ThumbBar } from './ThumbBar';
+import { ContributionPie } from './Contributionpie';
+import { TaskSkyline } from './Taskskyline';
 import { createClient } from '@/lib/supabase/client';
 import {
   takeTask as apiTakeTask,
@@ -83,6 +85,7 @@ export function RoomTaskLifecycle({
 
   // UI States
   const [activeTab, setActiveTab] = useState<'Semua' | 'Bisa diambil'>('Semua');
+  const [viewMode, setViewMode] = useState<'daftar' | 'kota'>('daftar');
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<'Progres' | 'Aktivitas'>('Progres');
@@ -504,13 +507,39 @@ export function RoomTaskLifecycle({
           />
         </div>
 
-        {/* 2 Tab Saja: Semua · Bisa diambil (DESIGN.md v2 §3 #3) */}
-        <div className="pt-2">
-          <TabsPill
-            tabs={['Semua', 'Bisa diambil']}
-            activeTab={activeTab}
-            onChange={(tab) => setActiveTab(tab as 'Semua' | 'Bisa diambil')}
-          />
+        {/* 2 Tab Saja: Semua · Bisa diambil (DESIGN.md v2 §3 #3) + pilih tampilan Daftar / Kota */}
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
+          {viewMode === 'daftar' ? (
+            <TabsPill
+              tabs={['Semua', 'Bisa diambil']}
+              activeTab={activeTab}
+              onChange={(tab) => setActiveTab(tab as 'Semua' | 'Bisa diambil')}
+            />
+          ) : (
+            <span className="text-xs font-mono text-[var(--c3)]">Satu gedung = satu tugas</span>
+          )}
+
+          <div
+            role="group"
+            aria-label="Pilih tampilan tugas"
+            className="flex bg-[var(--c1)] p-0.5 rounded-full border border-[var(--c2)] text-xs font-mono"
+          >
+            {(['daftar', 'kota'] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                aria-pressed={viewMode === mode}
+                onClick={() => setViewMode(mode)}
+                className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all duration-300 capitalize ${
+                  viewMode === mode
+                    ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold'
+                    : 'text-[var(--c3)] hover:text-[var(--c4)]'
+                }`}
+              >
+                {mode}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -518,7 +547,24 @@ export function RoomTaskLifecycle({
           ZONA 2: DAFTAR TUGAS 1 KOLOM (DESIGN.md v2 §5.4)
          ============================================================== */}
       <section aria-label="Papan Tugas" className="space-y-2">
-        {filteredTasks.length === 0 ? (
+        {viewMode === 'kota' ? (
+          <div className="animate-in fade-in duration-500">
+            <TaskSkyline
+              tasks={tasks}
+              pct={stats.pct}
+              onSelectTask={(id) => {
+                const target = tasks.find((t) => t.id === id);
+                if (!target) return;
+                setSelectedTask(target);
+                setShowRevisionInput(false);
+                setRevisionText('');
+                setRevisionError('');
+                setProofUrl(target.submit_link || '');
+                setProofNote(target.submit_note || '');
+              }}
+            />
+          </div>
+        ) : filteredTasks.length === 0 ? (
           <div className="p-8 text-center rounded-[18px] border border-dashed border-[var(--c2)] space-y-3">
             <p className="text-sm text-[var(--c3)]">
               {activeTab === 'Bisa diambil'
@@ -1008,45 +1054,15 @@ export function RoomTaskLifecycle({
               </div>
 
               <span className="eyebrow text-xs">Poin Kontribusi Selesai</span>
-              <div className="space-y-3">
-                {members.map((m) => {
-                  const memberPct =
-                    stats.totalPoints > 0 ? Math.round((m.points / stats.totalPoints) * 100) : 0;
-                  return (
-                    <div
-                      key={m.id}
-                      className="p-3 rounded-[12px] bg-[var(--c1)]/60 border border-[var(--c2)]/40 space-y-2"
-                    >
-                      <div className="flex justify-between items-center text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-[var(--c2)] text-[var(--c4)] flex items-center justify-center font-bold text-[10px]">
-                            {m.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span className="font-medium text-[var(--c4)]">
-                            {m.name} {m.id === currentUserId && '(Anda)'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 font-mono text-[11px]">
-                          {m.role === 'Ketua' && (
-                            <span className="px-1.5 py-0.5 bg-[var(--c2)] text-[var(--c4)] rounded text-[9px] uppercase">
-                              Ketua
-                            </span>
-                          )}
-                          <span className="text-[var(--c3)]">{m.points}p</span>
-                        </div>
-                      </div>
-
-                      {/* Bar Progres Individu */}
-                      <div className="w-full bg-[var(--c0)] h-1.5 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${memberPct}%` }}
-                          className="bg-[var(--c4)] h-full transition-all duration-700"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <ContributionPie
+                members={members.map((m) => ({
+                  id: m.id,
+                  name: m.name,
+                  role: m.role,
+                  points: m.points,
+                  isCurrentUser: m.id === currentUserId,
+                }))}
+              />
             </div>
           )}
 
@@ -1102,4 +1118,4 @@ export function RoomTaskLifecycle({
       />
     </div>
   );
-}
+};
