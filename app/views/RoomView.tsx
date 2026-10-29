@@ -342,7 +342,7 @@ export function RoomView({
               ['doing', 'Berjalan'],
               ['review', 'Menunggu'],
               ['done', 'Selesai'],
-              ['kontrak', 'Kontrak'],
+              ...(contractSlot ? [['kontrak', 'Kontrak']] as const : []),
             ] as const).map(([k, label]) => (
               <button
                 key={k}
