@@ -14,6 +14,7 @@ import {
   TaskRow,
 } from './DesignSystem';
 import { ThumbBar } from './ThumbBar';
+
 import { createClient } from '@/lib/supabase/client';
 import {
   takeTask as apiTakeTask,
@@ -83,6 +84,7 @@ export function RoomTaskLifecycle({
 
   // UI States
   const [activeTab, setActiveTab] = useState<'Semua' | 'Bisa diambil'>('Semua');
+  const [viewMode] = useState<'daftar'>('daftar');
   const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [drawerTab, setDrawerTab] = useState<'Progres' | 'Aktivitas'>('Progres');
@@ -504,8 +506,8 @@ export function RoomTaskLifecycle({
           />
         </div>
 
-        {/* 2 Tab Saja: Semua · Bisa diambil (DESIGN.md v2 §3 #3) */}
-        <div className="pt-2">
+        {/* Tab filter */}
+        <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
           <TabsPill
             tabs={['Semua', 'Bisa diambil']}
             activeTab={activeTab}
@@ -1005,47 +1007,6 @@ export function RoomTaskLifecycle({
                     isOwner: m.isOwner,
                   }))}
                 />
-              </div>
-
-              <span className="eyebrow text-xs">Poin Kontribusi Selesai</span>
-              <div className="space-y-3">
-                {members.map((m) => {
-                  const memberPct =
-                    stats.totalPoints > 0 ? Math.round((m.points / stats.totalPoints) * 100) : 0;
-                  return (
-                    <div
-                      key={m.id}
-                      className="p-3 rounded-[12px] bg-[var(--c1)]/60 border border-[var(--c2)]/40 space-y-2"
-                    >
-                      <div className="flex justify-between items-center text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-[var(--c2)] text-[var(--c4)] flex items-center justify-center font-bold text-[10px]">
-                            {m.name.slice(0, 2).toUpperCase()}
-                          </div>
-                          <span className="font-medium text-[var(--c4)]">
-                            {m.name} {m.id === currentUserId && '(Anda)'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 font-mono text-[11px]">
-                          {m.role === 'Ketua' && (
-                            <span className="px-1.5 py-0.5 bg-[var(--c2)] text-[var(--c4)] rounded text-[9px] uppercase">
-                              Ketua
-                            </span>
-                          )}
-                          <span className="text-[var(--c3)]">{m.points}p</span>
-                        </div>
-                      </div>
-
-                      {/* Bar Progres Individu */}
-                      <div className="w-full bg-[var(--c0)] h-1.5 rounded-full overflow-hidden">
-                        <div
-                          style={{ width: `${memberPct}%` }}
-                          className="bg-[var(--c4)] h-full transition-all duration-700"
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
               </div>
             </div>
           )}
