@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { LandingView } from './views/LandingView';
 import {
   getUserDashboardData,
   createRoom,
@@ -663,47 +664,7 @@ export default function Home() {
           {/* VIEW: LANDING */}
           {view === 'landing' && (
             <section className="view in" id="v-landing">
-              <div className="wrap">
-                <div className="hero">
-                  <h1 data-s>Bagi tugas kelompok dengan adil, dan lihat progresnya.</h1>
-                  <p className="lead" data-s>
-                    Buat ruangan, beri poin pada tiap tugas, lalu biarkan teman satu kelompok memeriksa hasilnya. Poin baru dihitung setelah disetujui.
-                  </p>
-                  <div className="ctas" data-s>
-                    <button className="btn solid lg" type="button" onClick={() => go(user ? 'dashboard' : 'auth')}>
-                      Mulai sekarang
-                    </button>
-                    {rooms.length > 0 && (
-                      <button className="btn text lg" type="button" onClick={() => go('team', 0)}>
-                        Buka ruangan Anda
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div className="steps">
-                  <h2 data-s>Cara kerjanya</h2>
-                  <ol>
-                    <li data-s>
-                      <b>1</b>
-                      <h3>Buat ruangan</h3>
-                      <p>Anda jadi ketua. Teman bergabung lewat kode enam karakter.</p>
-                    </li>
-                    <li data-s>
-                      <b>2</b>
-                      <h3>Bagi tugas dan poin</h3>
-                      <p>Tiap tugas punya poin dan tenggat. Siapa pun bisa mengambil tugas yang masih terbuka.</p>
-                    </li>
-                    <li data-s>
-                      <b>3</b>
-                      <h3>Teman memeriksa</h3>
-                      <p>Setelah hasil dikirim, mayoritas teman perlu menyetujui sebelum poinnya dihitung.</p>
-                    </li>
-                  </ol>
-                </div>
-                <div className="foot" data-s>
-                  FairWorks — platform pembagian tugas kelompok anti free-rider.
-                </div>
-              </div>
+              <LandingView onStart={() => go(user ? 'dashboard' : 'auth')} />
             </section>
           )}
 
