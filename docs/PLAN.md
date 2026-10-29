@@ -72,6 +72,7 @@ Keluaran: satu siklus penuh tugas selesai end-to-end.
 - [x] UI persetujuan: Setuju/Revisi, daftar suara transparan, catatan revisi
 - [x] Progres besar + bar anggota + feed realtime (langganan Supabase)
 - [x] Edge case UI: kirim ulang, suara hangus, anggota keluar, tanpa tenggat
+- [x] Optimasi ergonomi mobile thumb bar (Riski)
 
 ### T5 — Halaman Publik (Chello + Iwan) — butuh T1; dossier nyambung saat ada data done ✅ SELESAI
 Keluaran: pintu masuk, masuk, dan laporan dosen jadi.
@@ -84,7 +85,8 @@ Keluaran: pintu masuk, masuk, dan laporan dosen jadi.
 Keluaran: E2E pertama mulus + edge case tertutup.
 - [ ] E2E: bikin ruangan → kontrak → ambil → kirim → 2 setuju → done (Rab pertama setelah T4 jadi)
 - [ ] Edge case PRD 4.8 satu per satu
-- [ ] Audit RLS + hardening RPC (Raken)
+- [x] Audit RLS + hardening RPC (Raken)
+- [x] Verifikasi kalkulasi kuorum mayoritas & siklus status DB (Raken)
 - [ ] Notifikasi: in-app bell + toast (Iwan) + email 5 trigger Edge Function (Raken)
 - [ ] Fallback polling realtime
 
