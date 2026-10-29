@@ -1,48 +1,37 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { BackgroundMood, LineBackgroundEngine } from './components/LineBackgroundEngine';
-import { KineticTitle } from './components/KineticTitle';
-import {
-  Btn,
-  Panel,
-  Track,
-  AvatarStack,
-  Modal,
-  Toast,
-  Field,
-  Drawer,
-} from './components/DesignSystem';
-import { ThumbBar } from './components/ThumbBar';
-import { RoomTaskLifecycle } from './components/RoomTaskLifecycle';
+import { LineBackgroundEngine } from './components/LineBackgroundEngine';
+import { AppHeader } from './components/AppHeader';
+import { AppDock, type DockTarget } from './components/AppDock';
+import { Modal, Toast, Field, Btn } from './components/DesignSystem';
 import { ContractFlow, ContractTaskItem, ContractMember } from './components/ContractFlow';
 import { JoinRoomModal } from './components/JoinRoomModal';
 import { CreateRoomModal } from './components/CreateRoomModal';
-import { DashboardView, DashboardRoomItem } from './components/DashboardView';
+import { DashboardViewNew, type MyTaskRow } from './views/DashboardViewNew';
+import type { DashboardRoomItem } from './components/DashboardView';
+import { LandingView } from './views/LandingView';
+import { AuthView } from './views/AuthView';
+import { RoomView } from './views/RoomView';
 import { DossierReport, ReportData } from './components/DossierReport';
 import { createClient } from '@/lib/supabase/client';
-import { getUserDashboardData, createRoom, joinRoom } from '@/lib/api/fairworks';
+import {
+  getUserDashboardData,
+  createRoom,
+  joinRoom,
+  submitContract,
+  voteContract,
+  autoLock,
+  createTask,
+  updateTask,
+  deleteTask,
+} from '@/lib/api/fairworks';
 
 /* ------------------------------------------------------------------
-   Transisi antar view (morph + fade)
-   Alur: view lama keluar (fade + blur + naik sedikit) -> konten ditukar
-   -> view baru masuk (dari bawah, fade + un-blur). Background engine
-   & lebar container langsung morph ke mood baru selama proses ini.
+   Shell transisi antar view (ruang-tim): keluar fade-naik, masuk stagger.
+   Background engine + lebar container mengikuti mood tujuan.
    ------------------------------------------------------------------ */
-const EXIT_MS = 220;
-const ENTER_MS = 520;
-const EASE = 'cubic-bezier(0.22, 1, 0.36, 1)';
-
-function GoogleIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
-      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
-    </svg>
-  );
-}
+const EXIT_MS = 400;
 
 type TransitionPhase = 'idle' | 'out' | 'in';
 
@@ -57,47 +46,65 @@ function getPhaseStyle(phase: TransitionPhase, reduced: boolean): React.CSSPrope
     case 'out':
       return {
         opacity: 0,
-        transform: 'translate3d(0,-10px,0) scale(0.985)',
-        filter: 'blur(6px)',
-        transition: `opacity ${EXIT_MS}ms ease-in, transform ${EXIT_MS}ms ease-in, filter ${EXIT_MS}ms ease-in`,
+        transform: 'translateY(-8px)',
+        transition: `opacity ${EXIT_MS}ms var(--ease), transform ${EXIT_MS}ms var(--ease)`,
       };
     case 'in':
-      // posisi awal masuk: langsung dipasang tanpa transisi
       return {
         opacity: 0,
-        transform: 'translate3d(0,18px,0) scale(0.99)',
-        filter: 'blur(6px)',
         transition: 'none',
       };
     default:
       return {
         opacity: 1,
-        transform: 'translate3d(0,0,0) scale(1)',
-        filter: 'blur(0px)',
-        transition: `opacity ${ENTER_MS}ms ${EASE}, transform ${ENTER_MS}ms ${EASE}, filter ${ENTER_MS}ms ${EASE}`,
+        transform: 'translateY(0)',
+        transition: 'opacity .7s var(--ease), transform .7s var(--ease)',
       };
   }
 }
 
 export default function Home() {
-  const [currentView, setCurrentView] = useState<BackgroundMood>('landing');
-  // View yang benar-benar sedang dirender (tertinggal dari currentView selama fase keluar)
-  const [displayedView, setDisplayedView] = useState<BackgroundMood>('landing');
+  const [currentView, setCurrentView] = useState<DockTarget>('landing');
+  const [displayedView, setDisplayedView] = useState<DockTarget>('landing');
   const [phase, setPhase] = useState<TransitionPhase>('idle');
   const [reducedMotion, setReducedMotion] = useState(false);
 
-  // Auth State & User Session
+  // Sesi & data
   const [user, setUser] = useState<any>(null);
   const [userName, setUserName] = useState<string>('Pengguna');
   const [myTaskCount, setMyTaskCount] = useState(0);
   const [myTotalPoints, setMyTotalPoints] = useState(0);
+  const [myTasks, setMyTasks] = useState<MyTaskRow[]>([]);
 
-  // Modal nama panggilan (onboarding pertama & rename via header)
+  // Modal nama panggilan
   const [nameModalOpen, setNameModalOpen] = useState(false);
   const [nameInput, setNameInput] = useState('');
   const [savingName, setSavingName] = useState(false);
 
-  // Muat data dashboard asli dari Supabase (profil, ruangan, tugas). Kosong = tampil kosong.
+  // Ruangan aktif
+  const [activeRoom, setActiveRoom] = useState<{ id: string; nama: string; kode: string; role: 'ketua' | 'anggota' } | null>(null);
+  const [joinModalOpen, setJoinModalOpen] = useState(false);
+  const [createRoomModalOpen, setCreateRoomModalOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // State kontrak (tab Kontrak di dalam ruangan)
+  const [contractLocked, setContractLocked] = useState(false);
+  const [contractDeadline, setContractDeadline] = useState<string | null>(null);
+  const [contractMembers, setContractMembers] = useState<ContractMember[]>([]);
+  const [contractTasks, setContractTasks] = useState<ContractTaskItem[]>([]);
+
+  const timersRef = useRef<{ swap?: ReturnType<typeof setTimeout>; raf1?: number; raf2?: number }>({});
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
+    setReducedMotion(mq.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+
+  // Muat data dashboard asli dari Supabase. Kosong = tampil kosong.
   const loadDashboard = useCallback(async () => {
     try {
       const res = await getUserDashboardData();
@@ -106,9 +113,11 @@ export default function Home() {
       const displayName = res.user.nama || res.user.email?.split('@')[0] || 'Pengguna';
       setUserName(displayName);
 
-      // Nama belum pernah diisi (profil baru / kosong): ajak isi nama panggilan sekali
+      // Nama belum pernah diisi: ajak isi nama panggilan sekali
       if (!res.user.nama) {
-        const meta = user?.user_metadata ?? {};
+        const supabase = createClient();
+        const { data: { user: u } } = await supabase.auth.getUser();
+        const meta = (u?.user_metadata ?? {}) as Record<string, string>;
         setNameInput(meta.full_name || meta.name || displayName);
         setNameModalOpen(true);
       }
@@ -170,10 +179,11 @@ export default function Home() {
       );
       setMyTaskCount(taskCount);
       setMyTotalPoints(totalPoints);
+      setMyTasks((res.myTasks ?? []) as unknown as MyTaskRow[]);
     } catch {
       // Biarkan dashboard tampil kosong kalau data gagal dimuat
     }
-  }, [user]);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -186,6 +196,7 @@ export default function Home() {
         // Sesi habis / belum login: semua state privat dikosongkan & kembali ke landing
         setUserName('Pengguna');
         setDashboardRooms([]);
+        setMyTasks([]);
         setMyTaskCount(0);
         setMyTotalPoints(0);
         setActiveRoom(null);
@@ -200,7 +211,6 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, [loadDashboard]);
 
-  // Login Google: popup/redirect OAuth, balik ke origin lalu onAuthStateChange yang melanjutkan
   const signInWithGoogle = async () => {
     try {
       const supabase = createClient();
@@ -216,7 +226,22 @@ export default function Home() {
     }
   };
 
-  // Simpan nama panggilan ke profiles (RLS: hanya baris sendiri)
+  const sendMagic = async (email: string): Promise<boolean> => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}` : undefined,
+        },
+      });
+      if (error) throw error;
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const handleSaveName = async () => {
     const nama = nameInput.trim();
     if (!nama || !user) return;
@@ -235,31 +260,13 @@ export default function Home() {
     }
   };
 
-  // State Ruangan Aktif Terpilih
-  const [activeRoom, setActiveRoom] = useState<{ id: string; nama: string; kode: string } | null>(null);
-  const [createRoomModalOpen, setCreateRoomModalOpen] = useState(false);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [emailInput, setEmailInput] = useState('');
-  const [authSent, setAuthSent] = useState(false);
-  const [joinModalOpen, setJoinModalOpen] = useState(false);
-  const [roomSubTab, setRoomSubTab] = useState<'papan' | 'kontrak'>('papan');
+  const signOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+  };
 
-  const timersRef = useRef<{ swap?: ReturnType<typeof setTimeout>; raf1?: number; raf2?: number }>({});
-
-  // Hormati preferensi "reduce motion"
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
-  }, []);
-
-  // Orkestrasi transisi: out -> swap -> in -> idle
-  // PENTING: dependency HANYA currentView. displayedView dibaca lewat ref, kalau tidak,
-  // setDisplayedView() memicu cleanup yang membatalkan rAF "idle" -> view nyangkut opacity 0.
-  const displayedViewRef = useRef<BackgroundMood>('landing');
+  // Orkestrasi transisi: out -> swap -> in -> idle (view lama benar-benar diganti)
+  const displayedViewRef = useRef<DockTarget>('landing');
   useEffect(() => {
     displayedViewRef.current = displayedView;
   }, [displayedView]);
@@ -275,7 +282,6 @@ export default function Home() {
 
     clearAll();
 
-    // Balik ke view yang sedang tampil (mis. klik cepat bolak-balik): pastikan terlihat penuh
     if (currentView === displayedViewRef.current) {
       setPhase('idle');
       return clearAll;
@@ -285,9 +291,9 @@ export default function Home() {
     t.swap = setTimeout(() => {
       displayedViewRef.current = currentView;
       setDisplayedView(currentView);
-      if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'auto' });
+      const sc = document.getElementById('fw-scroll');
+      if (sc) sc.scrollTo({ top: 0, behavior: 'auto' });
       setPhase('in');
-      // dua frame supaya posisi awal "in" sempat ter-paint sebelum animasi masuk
       t.raf1 = requestAnimationFrame(() => {
         t.raf2 = requestAnimationFrame(() => setPhase('idle'));
       });
@@ -296,14 +302,12 @@ export default function Home() {
     return clearAll;
   }, [currentView, reducedMotion]);
 
-  // State Dashboard Ruangan (kosong bersih dari awal)
+  // State Dashboard Ruangan
   const [dashboardRooms, setDashboardRooms] = useState<DashboardRoomItem[]>([]);
-  const [contractLocked, setContractLocked] = useState(false);
-  const [contractDeadline, setContractDeadline] = useState<string | null>(null);
-  const [contractMembers, setContractMembers] = useState<ContractMember[]>([]);
-  const [contractTasks, setContractTasks] = useState<ContractTaskItem[]>([]);
 
-  // Data laporan dibangun dari ruangan aktif yang benar-benar ada. Tanpa ruangan = null (laporan tampil kosong).
+  const phaseStyle = getPhaseStyle(phase, reducedMotion);
+
+  // Laporan dibangun dari ruangan aktif; tanpa ruangan = null (tampil kosong)
   const reportData: ReportData | null = useMemo(() => {
     if (!activeRoom) return null;
     return {
@@ -320,7 +324,7 @@ export default function Home() {
         user_id: m.id,
         nama: m.name,
         peran: m.role,
-        points_done: 0, // Draf kontrak belum ada pengerjaan; poin asli mengalir lewat laporan publik /l/{token}
+        points_done: 0,
       })),
       tasks: contractTasks.map((t) => ({
         id: t.id,
@@ -337,375 +341,250 @@ export default function Home() {
     };
   }, [activeRoom, contractTasks, contractMembers, contractLocked, contractDeadline]);
 
-  // Background & lebar container langsung ikut tujuan (morph berjalan bareng fade konten)
-  const activeMood: BackgroundMood = currentView;
-
-  const phaseStyle = getPhaseStyle(phase, reducedMotion);
-  const thumbBarVisible = displayedView !== 'laporan' && displayedView !== 'room';
+  const openRoom = (room: { id: string; nama: string; kode: string; role: 'ketua' | 'anggota'; locked?: boolean }) => {
+    setActiveRoom({ id: room.id, nama: room.nama, kode: room.kode, role: room.role });
+    setContractLocked(!!room.locked);
+    setContractTasks([]);
+    setContractMembers(
+      room.role === 'ketua'
+        ? [{ id: user?.id ?? '', name: userName, role: 'ketua', contractVote: 'agree' }]
+        : []
+    );
+    setContractDeadline(null);
+    setCurrentView('room');
+  };
 
   return (
-    <main className="min-h-screen relative overflow-x-hidden pb-28 text-[var(--c4)] bg-[var(--c0)] selection:bg-[var(--c4)] selection:text-[var(--c0)]">
-      {/* Keyframes untuk transisi kecil (sub-tab room & kartu) */}
+    <div className="relative min-h-screen overflow-x-hidden bg-[var(--c0)] text-[var(--c4)]">
       <style>{`
-        @keyframes fw-sub-enter {
-          from { opacity: 0; transform: translate3d(0, 10px, 0); filter: blur(4px); }
-          to   { opacity: 1; transform: translate3d(0, 0, 0);    filter: blur(0); }
-        }
-        .fw-sub-enter { animation: fw-sub-enter 380ms ${EASE} both; }
         @media (prefers-reduced-motion: reduce) {
-          .fw-sub-enter { animation: none; }
+          .fw-stagger > *, .fw-leave { animation: none; }
         }
       `}</style>
 
-      {/* Background Engine */}
-      <LineBackgroundEngine mood={activeMood} />
+      <LineBackgroundEngine mood={displayedView} />
 
-      {/* Top Header / View Switcher Bar for Audit & Review */}
-      <header className="relative z-30 border-b border-[var(--c1)] bg-[var(--c0)]/80 backdrop-blur-md px-6 py-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="eyebrow text-xs font-bold text-[var(--c4)]">FairWorks</span>
-          <span className="text-[var(--c3)] text-[11px] font-mono">v2 (Radical Simplicity)</span>
-        </div>
+      <AppHeader
+        loggedIn={!!user}
+        userName={userName}
+        onGoLanding={() => setCurrentView('landing')}
+        onOpenName={() => {
+          setNameInput(userName);
+          setNameModalOpen(true);
+        }}
+        onSignOut={signOut}
+      />
 
-        {user && (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
-              {(['landing', 'dashboard', 'room', 'laporan'] as const).map((v) => {
-                const isActive = currentView === v;
-                return (
-                  <button
-                    key={v}
-                    onClick={() => setCurrentView(v)}
-                    className={`px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider transition-all duration-300 cursor-pointer ${
-                      isActive ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'bg-[var(--c1)] text-[var(--c3)] hover:text-[var(--c4)]'
-                    }`}
-                  >
-                    {v}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => {
-                  setNameInput(userName);
-                  setNameModalOpen(true);
-                }}
-                title="Ubah nama panggilan"
-                className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c1)] text-[var(--c4)] hover:bg-[var(--c2)] transition-all duration-300 cursor-pointer border border-[var(--c2)]"
-              >
-                {userName}
-              </button>
-              <button
-                onClick={async () => {
-                  const supabase = createClient();
-                  await supabase.auth.signOut();
-                }}
-                className="px-3 py-1 rounded-full text-[11px] font-mono uppercase tracking-wider bg-[var(--c1)] text-[var(--c3)] hover:text-red-400 transition-all cursor-pointer border border-[var(--c2)]"
-              >
-                Keluar
-              </button>
-            </div>
-          </div>
-        )}
-      </header>
-
-      {/* Main View Container — lebar ikut morph ke tujuan */}
-      <div
-        className={`relative z-10 mx-auto px-4 sm:px-6 pt-8 sm:pt-12 transition-[max-width] duration-700 ease-[cubic-bezier(0.22,1,0.36,1)] ${
-          currentView === 'room' || currentView === 'laporan' ? 'max-w-[760px]' : 'max-w-5xl'
-        }`}
+      <main
+        id="fw-scroll"
+        className="fixed inset-0 z-10 overflow-y-auto overflow-x-hidden"
+        style={{ scrollbarWidth: 'thin', scrollbarColor: 'var(--c2) transparent' }}
       >
-        {/* Wrapper transisi: semua view dirender lewat displayedView */}
-        <div style={{ ...phaseStyle, willChange: 'opacity, transform, filter' }}>
-          {/* ==============================================================
-              VIEW 1: LANDING — 2 Blok (DESIGN.md v2 §5.1)
-             ============================================================== */}
-          {displayedView === 'landing' && (
-            <div className="space-y-12">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-center pt-4">
-                <div className="space-y-5">
-                  <span className="eyebrow text-xs">Kerja kelompok yang adil dan terlihat</span>
-                  <KineticTitle text="Kerja kelompok yang kelihatan progresnya." className="text-4xl sm:text-5xl font-semibold leading-tight tracking-tight" />
-                  <p className="text-[var(--c3)] text-base max-w-md leading-relaxed">
-                    Ketua bagi poin. Anggota ambil. Teman setujui. Dosen terima laporan tanpa login.
-                  </p>
-                  <div className="pt-2">
-                    <Btn onClick={() => setCurrentView('auth')}>Mulai gratis</Btn>
-                  </div>
-                </div>
+        <div className="grid min-h-full pb-28" style={{ paddingTop: 'calc(56px + env(safe-area-inset-top, 0px))' }}>
+          <div className="min-w-0 [grid-area:1/1]">
+            <div style={{ ...phaseStyle, willChange: 'opacity, transform' }}>
+              <div className="fw-stagger">
+                {displayedView === 'landing' && <LandingView onStart={() => setCurrentView('auth')} />}
 
-                {/* Preview Box Ringkas (1 blok preview di kanan) */}
-                <Panel className="space-y-4 border border-[var(--c2)] bg-[var(--c0)]/90 shadow-2xl">
-                  <div className="flex justify-between items-center text-xs font-mono">
-                    <span className="text-[var(--c4)] font-medium">Riset Pasar Digital</span>
-                    <span className="text-[var(--c3)]">40% selesai</span>
-                  </div>
-                  <Track done={40} review={30} doing={20} open={10} />
-                  <div className="space-y-2 pt-2">
-                    <div className="p-3 bg-[var(--c1)] rounded-[12px] flex justify-between items-center text-xs border border-[var(--c2)]/40">
-                      <span className="text-[var(--c4)] truncate">▸ Tulis bab latar belakang</span>
-                      <span className="font-mono text-[var(--c3)]">10p</span>
-                    </div>
-                    <div className="p-3 bg-[var(--c1)] rounded-[12px] flex justify-between items-center text-xs border border-[var(--c2)]/40">
-                      <span className="text-[var(--c4)] truncate">▸ Rangkum 10 jurnal acuan</span>
-                      <span className="font-mono text-[var(--c3)]">15p</span>
-                    </div>
-                  </div>
-                </Panel>
-              </div>
-            </div>
-          )}
+                {displayedView === 'auth' && <AuthView onSignInGoogle={signInWithGoogle} onSendMagic={sendMagic} />}
 
-          {/* ==============================================================
-              VIEW 2: AUTH — Satu Field (DESIGN.md v2 §5.2)
-             ============================================================== */}
-          {displayedView === 'auth' && (
-            <div className="min-h-[65vh] flex items-center justify-center">
-              <Panel className="w-full max-w-sm space-y-5 text-center bg-[var(--c0)]/95 border border-[var(--c2)] shadow-2xl p-7">
-                <div className="space-y-1.5 text-left">
-                  <span className="eyebrow text-xs">Selamat datang</span>
-                  <h2 className="text-2xl font-semibold tracking-tight">Masuk ke FairWorks</h2>
-                </div>
-
-                {!authSent ? (
-                  <div className="space-y-4 pt-2">
-                    <button
-                      onClick={signInWithGoogle}
-                      className="fw-sub-enter w-full inline-flex items-center justify-center gap-3 min-h-[48px] px-6 rounded-full bg-white text-[var(--c4)] text-[15px] font-medium border border-[var(--c2)] hover:bg-[var(--c1)] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none"
-                      style={{ animationDelay: '60ms' }}
-                    >
-                      <GoogleIcon />
-                      Lanjutkan dengan Google
-                    </button>
-
-                    <div className="flex items-center gap-3 fw-sub-enter" style={{ animationDelay: '140ms' }}>
-                      <div className="h-px flex-1 bg-[var(--c2)]" />
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--c3)]">atau</span>
-                      <div className="h-px flex-1 bg-[var(--c2)]" />
-                    </div>
-
-                    <form
-                      onSubmit={async (e) => {
-                        e.preventDefault();
-                        const email = emailInput.trim();
-                        if (!email) return;
-                        try {
-                          const supabase = createClient();
-                          const { error } = await supabase.auth.signInWithOtp({
-                            email,
-                            options: {
-                              emailRedirectTo: typeof window !== 'undefined' ? `${window.location.origin}` : undefined,
-                            },
-                          });
-                          if (error) throw error;
-                          setAuthSent(true);
-                        } catch (err: unknown) {
-                          setToastMessage(err instanceof Error ? err.message : 'Gagal mengirim tautan magic link.');
-                        }
-                      }}
-                      className="fw-sub-enter space-y-3 text-left"
-                      style={{ animationDelay: '220ms' }}
-                    >
-                      <Field
-                        label="Masuk via tautan email"
-                        type="email"
-                        placeholder="kamu@kampus.id"
-                        value={emailInput}
-                        onChange={(e) => setEmailInput(e.target.value)}
-                        required
-                      />
-                      <Btn type="submit" variant="outline" className="w-full text-xs min-h-[40px]">
-                        Kirim tautan masuk
-                      </Btn>
-                    </form>
-                  </div>
-                ) : (
-                  <div className="fw-sub-enter space-y-3 py-3 bg-[var(--c1)] rounded-[14px] p-5 border border-[var(--c2)] text-left">
-                    <p className="text-sm text-[var(--c4)]">
-                      Cek email kamu <strong className="text-white">({emailInput})</strong>, tautan masuk sudah dikirim.
-                    </p>
-                    <Btn variant="outline" onClick={() => setAuthSent(false)} className="w-full text-xs min-h-[36px]">
-                      Kirim ulang
-                    </Btn>
-                  </div>
-                )}
-              </Panel>
-            </div>
-          )}
-
-          {/* ==============================================================
-              VIEW 3: DASHBOARD — 2 Zona: Baris Mono + Daftar Kolom (DESIGN.md v2 §5.3)
-             ============================================================== */}
-          {displayedView === 'dashboard' && (
-            <DashboardView
-              userName={userName}
-              rooms={dashboardRooms}
-              myTaskCount={myTaskCount}
-              myTotalPoints={myTotalPoints}
-              onSelectRoom={(room) => {
-                setActiveRoom({ id: room.id, nama: room.nama, kode: room.kode });
-                setContractLocked(room.status === 'locked');
-                setRoomSubTab(room.status === 'locked' ? 'papan' : 'kontrak');
-                setCurrentView('room');
-                setToastMessage(`Membuka ruangan ${room.nama}`);
-              }}
-              onOpenJoinModal={() => setJoinModalOpen(true)}
-            />
-          )}
-
-          {/* ==============================================================
-              VIEW 4: ROOM — Siklus Pengerjaan Tugas T4 (Riski) & Flow Kontrak T3 (Iwan)
-             ============================================================== */}
-          {displayedView === 'room' && !activeRoom && (
-            <Panel className="p-12 text-center space-y-3 border border-dashed border-[var(--c2)]">
-              <p className="text-sm text-[var(--c3)]">Belum ada ruangan aktif.</p>
-              <p className="text-xs text-[var(--c3)] font-mono">Pilih ruangan dari dashboard terlebih dahulu.</p>
-            </Panel>
-          )}
-
-          {displayedView === 'room' && activeRoom && (
-            <div className="space-y-5">
-              {/* Toggle Sub-View: Papan Tugas vs Alur Kontrak */}
-              <div className="flex items-center justify-between pb-1">
-                <div className="flex bg-[var(--c1)] p-0.5 rounded-full border border-[var(--c2)] text-xs font-mono">
-                  <button
-                    onClick={() => setRoomSubTab('papan')}
-                    className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all duration-300 ${
-                      roomSubTab === 'papan' ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'text-[var(--c3)] hover:text-[var(--c4)]'
-                    }`}
-                  >
-                    Papan Tugas
-                  </button>
-                  <button
-                    onClick={() => setRoomSubTab('kontrak')}
-                    className={`px-3.5 py-1.5 rounded-full cursor-pointer transition-all duration-300 ${
-                      roomSubTab === 'kontrak' ? 'bg-[var(--c4)] text-[var(--c0)] font-semibold' : 'text-[var(--c3)] hover:text-[var(--c4)]'
-                    }`}
-                  >
-                    Kontrak {contractLocked ? '(Terkunci)' : '(Draf)'}
-                  </button>
-                </div>
-              </div>
-
-              {/* key = paksa remount supaya animasi masuk sub-tab jalan tiap ganti */}
-              <div key={roomSubTab} className="fw-sub-enter">
-                {roomSubTab === 'papan' ? (
-                  <RoomTaskLifecycle
-                    currentUserId={user?.id ?? ''}
-                    currentUserName={userName}
-                    roomName={activeRoom.nama}
-                    roomCode={activeRoom.kode}
-                    onNavigateHome={() => setCurrentView('dashboard')}
+                {displayedView === 'dashboard' && (
+                  <DashboardViewNew
+                    userName={userName}
+                    rooms={dashboardRooms}
+                    myTasks={myTasks}
+                    onSelectRoom={(room) => openRoom({ ...room, locked: room.status === 'locked' })}
+                    onJoin={() => setJoinModalOpen(true)}
+                    onCreate={() => setCreateRoomModalOpen(true)}
                   />
-                ) : (
-                  <div className="space-y-4 pt-2">
-                    <div className="border-b border-[var(--c1)] pb-4 space-y-1">
-                      <span className="eyebrow text-xs">Agreement Lock</span>
-                      <h3 className="text-xl font-semibold">Kesepakatan Porsi Kerja Tim</h3>
-                      <p className="text-xs text-[var(--c3)]">
-                        Ketua menentukan bobot tugas, seluruh anggota menyepakati di awal sebelum pengerjaan dimulai.
-                      </p>
-                    </div>
-                    <ContractFlow
+                )}
+
+                {displayedView === 'room' &&
+                  (activeRoom ? (
+                    <RoomView
+                      roomId={activeRoom.id}
                       roomName={activeRoom.nama}
                       roomCode={activeRoom.kode}
-                      isOwner={true}
-                      isLocked={contractLocked}
-                      lockedAt={contractLocked ? new Date().toISOString() : null}
-                      contractDeadline={contractDeadline}
-                      members={contractMembers}
-                      tasks={contractTasks}
-                      currentUserId={user?.id ?? ''}
-                      onProceedToActiveRoom={() => {
-                        setContractLocked(true);
-                        setRoomSubTab('papan');
-                        setToastMessage('Kontrak resmi terkunci! Membuka Papan Tugas Aktif.');
-                      }}
-                      onAddTask={(newTask) => {
-                        const id = `t-${Date.now()}`;
-                        setContractTasks((prev) => [
-                          ...prev,
-                          {
-                            ...newTask,
-                            id,
-                            status: 'open',
-                            postLockVotes: newTask.postLockPending ? [] : undefined,
-                          },
-                        ]);
-                        setToastMessage(
-                          newTask.postLockPending
-                            ? 'Tugas diajukan ke mayoritas anggota!'
-                            : 'Tugas berhasil ditambahkan ke draf kontrak'
-                        );
-                      }}
-                      onEditTask={(taskId, updates) => {
-                        setContractTasks((prev) =>
-                          prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t))
-                        );
-                        setToastMessage('Tugas berhasil diubah');
-                      }}
-                      onDeleteTask={(taskId) => {
-                        setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
-                        setToastMessage('Tugas dihapus dari kontrak');
-                      }}
-                  onSubmitContract={async () => {
-                    const d = new Date();
-                    d.setHours(d.getHours() + 24);
-                    setContractDeadline(d.toISOString());
-                    setToastMessage('Kontrak diajukan! Batas 24 jam dimulai.');
-                  }}
-                      onVoteContract={(agree, note) => {
-                        setContractMembers((prev) =>
-                          prev.map((m) =>
-                            m.id === 'me'
-                              ? { ...m, contractVote: agree ? 'agree' : 'request_changes', contractVoteNote: note || null }
-                              : m
-                          )
-                        );
-                        if (agree) {
-                          setToastMessage('Persetujuan Anda telah dicatat.');
-                        } else {
-                          setToastMessage('Catatan revisi kontrak telah dikirim.');
-                        }
-                      }}
-                      onVotePostLockTask={(taskId, agree) => {
-                        if (agree) {
-                          setContractTasks((prev) =>
-                            prev.map((t) => (t.id === taskId ? { ...t, postLockPending: false } : t))
-                          );
-                          setToastMessage('Tugas pasca-lock disetujui mayoritas & aktif!');
-                        } else {
-                          setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
-                          setToastMessage('Tugas pasca-lock ditolak anggota.');
-                        }
-                      }}
-                      onAutoLockTrigger={() => {
-                        setContractLocked(true);
-                        setContractDeadline(null);
-                        setToastMessage('Waktu 24 jam habis: Kontrak terkunci otomatis!');
-                      }}
+                      userId={user?.id ?? ''}
+                      isOwner={activeRoom.role === 'ketua'}
+                      onToast={setToastMessage}
+                      onBack={() => setCurrentView('dashboard')}
+                      contractLocked={contractLocked}
+                      contractSlot={
+                        <ContractFlow
+                          roomName={activeRoom.nama}
+                          roomCode={activeRoom.kode}
+                          isOwner={activeRoom.role === 'ketua'}
+                          isLocked={contractLocked}
+                          lockedAt={contractLocked ? new Date().toISOString() : null}
+                          contractDeadline={contractDeadline}
+                          members={contractMembers}
+                          tasks={contractTasks}
+                          currentUserId={user?.id ?? ''}
+                          onProceedToActiveRoom={() => {
+                            setContractLocked(true);
+                            setToastMessage('Kontrak terkunci! Beralih ke papan tugas.');
+                          }}
+                          onAddTask={async (newTask) => {
+                            try {
+                              await createTask({
+                                roomId: activeRoom.id,
+                                judul: newTask.judul,
+                                deskripsi: newTask.deskripsi || undefined,
+                                poin: newTask.poin,
+                                dueDate: newTask.dueDate || undefined,
+                              });
+                              const item: ContractTaskItem = {
+                                ...newTask,
+                                id: `db-${Date.now()}`,
+                                status: 'open',
+                                postLockPending: !!newTask.postLockPending,
+                                postLockVotes: newTask.postLockPending ? [] : undefined,
+                              };
+                              setContractTasks((prev) => [...prev, item]);
+                              setToastMessage(
+                                newTask.postLockPending ? 'Tugas diajukan ke anggota.' : 'Tugas masuk draf kontrak.'
+                              );
+                            } catch (err: unknown) {
+                              setToastMessage(err instanceof Error ? err.message : 'Gagal menambah tugas.');
+                            }
+                          }}
+                          onEditTask={async (taskId, updates) => {
+                            const dbId = taskId.startsWith('db-') ? null : taskId;
+                            try {
+                              if (dbId) {
+                                await updateTask(dbId, {
+                                  judul: updates.judul,
+                                  deskripsi: updates.deskripsi || undefined,
+                                  poin: updates.poin,
+                                  dueDate: updates.dueDate || undefined,
+                                });
+                              }
+                              setContractTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...updates } : t)));
+                              setToastMessage('Tugas diperbarui.');
+                            } catch (err: unknown) {
+                              setToastMessage(err instanceof Error ? err.message : 'Gagal mengubah tugas.');
+                            }
+                          }}
+                          onDeleteTask={async (taskId) => {
+                            const dbId = taskId.startsWith('db-') ? null : taskId;
+                            try {
+                              if (dbId) await deleteTask(dbId);
+                              setContractTasks((prev) => prev.filter((t) => t.id !== taskId));
+                              setToastMessage('Tugas dihapus dari kontrak.');
+                            } catch (err: unknown) {
+                              setToastMessage(err instanceof Error ? err.message : 'Gagal menghapus tugas.');
+                            }
+                          }}
+                          onSubmitContract={async () => {
+                            try {
+                              const res = (await submitContract(activeRoom.id)) as { contract_deadline?: string };
+                              const dl = res?.contract_deadline ?? new Date(Date.now() + 24 * 3600 * 1000).toISOString();
+                              setContractDeadline(dl);
+                              setToastMessage('Kontrak diajukan! Batas 24 jam dimulai.');
+                            } catch (err: unknown) {
+                              setToastMessage(err instanceof Error ? err.message : 'Gagal mengajukan kontrak.');
+                            }
+                          }}
+                          onVoteContract={async (agree, note) => {
+                            try {
+                              const res = (await voteContract(activeRoom.id, agree, note || undefined)) as { locked?: boolean };
+                              setContractMembers((prev) =>
+                                prev.map((m) =>
+                                  m.id === user?.id
+                                    ? { ...m, contractVote: agree ? 'agree' : 'request_changes', contractVoteNote: note || null }
+                                    : m
+                                )
+                              );
+                              if (res?.locked) {
+                                setContractLocked(true);
+                                setToastMessage('Semua setuju — kontrak resmi terkunci!');
+                              } else {
+                                setToastMessage(agree ? 'Persetujuan tercatat.' : 'Catatan revisi dikirim.');
+                              }
+                            } catch (err: unknown) {
+                              setToastMessage(err instanceof Error ? err.message : 'Gagal mencatat suara.');
+                            }
+                          }}
+                          onVotePostLockTask={(taskId, agree) => {
+                            setContractTasks((prev) =>
+                              agree
+                                ? prev.map((t) => (t.id === taskId ? { ...t, postLockPending: false } : t))
+                                : prev.filter((t) => t.id !== taskId)
+                            );
+                            setToastMessage(agree ? 'Tugas pasca-lock disetujui.' : 'Tugas pasca-lock ditolak.');
+                          }}
+                          onAutoLockTrigger={async () => {
+                            try {
+                              await autoLock(activeRoom.id);
+                            } catch {
+                              // diam — auto lock hanya upaya terbaik
+                            }
+                            setContractLocked(true);
+                            setContractDeadline(null);
+                            setToastMessage('Waktu 24 jam habis: kontrak terkunci otomatis.');
+                          }}
+                        />
+                      }
                     />
+                  ) : (
+                    <div className="mx-auto w-full max-w-[1040px] px-5 pt-10">
+                      <div className="grid gap-3 border border-dashed border-[var(--c2)] rounded-[18px] py-12 text-center">
+                        <p className="text-sm text-[var(--c3)]">Belum ada ruangan aktif.</p>
+                        <p className="text-xs font-[family-name:var(--font-geist-mono)] text-[var(--c3)]">
+                          Pilih ruangan dari dashboard terlebih dahulu.
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+
+                {displayedView === 'laporan' && (
+                  <div className="mx-auto w-full max-w-[860px] px-5 pt-8">
+                    <DossierReport initialData={reportData} onBack={() => setCurrentView('dashboard')} />
                   </div>
                 )}
               </div>
             </div>
-          )}
-
-          {/* ==============================================================
-              VIEW 5: DOSSIER PUBLIK FINAL (Chello - PRD §6 F5 / PLAN T5)
-              Kepala laporan + Pie chart monokrom + Timeline + Tabel bukti
-             ============================================================== */}
-          {displayedView === 'laporan' && (
-            <div>
-              <DossierReport initialData={reportData} onBack={() => setCurrentView('dashboard')} />
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      </main>
 
-      {/* Join Room Modal (T3: Join ruangan via kode) */}
+      <AppDock loggedIn={!!user} current={currentView} onNavigate={setCurrentView} />
+
+      {/* Modal nama panggilan */}
+      <Modal isOpen={nameModalOpen} onClose={() => setNameModalOpen(false)} title="Nama Panggilan">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSaveName();
+          }}
+          className="grid gap-4"
+        >
+          <p className="-mt-1 text-[13px] text-[var(--c3)]">
+            Nama ini yang tampil di ruangan tim, kontrak, dan laporan.
+          </p>
+          <Field
+            label="Panggil kamu apa?"
+            type="text"
+            placeholder="Contoh: Raken"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            maxLength={40}
+            required
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <Btn type="button" variant="ghost" onClick={() => setNameModalOpen(false)} className="min-h-[38px] cursor-pointer px-4 text-xs">
+              Nanti saja
+            </Btn>
+            <Btn type="button" onClick={handleSaveName} loading={savingName} className="min-h-[38px] cursor-pointer px-5 text-xs">
+              Simpan
+            </Btn>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Modal gabung ruangan */}
       <JoinRoomModal
         isOpen={joinModalOpen}
         onClose={() => setJoinModalOpen(false)}
@@ -719,14 +598,20 @@ export default function Home() {
                 : `Berhasil bergabung ke ruangan "${res.nama}"!`
             );
             await loadDashboard();
-            setCurrentView('dashboard');
+            const joined = dashboardRooms.find((r) => r.id === res.room_id);
+            openRoom({
+              id: res.room_id,
+              nama: res.nama,
+              kode: code.toUpperCase(),
+              role: joined?.role === 'ketua' ? 'ketua' : 'anggota',
+            });
           } catch (err: unknown) {
             setToastMessage(err instanceof Error ? err.message : 'Gagal masuk ruangan.');
           }
         }}
       />
 
-      {/* Create Room Modal (T3/T5: Buat ruangan & langsung redirect ke pre-lock contract) */}
+      {/* Modal buat ruangan */}
       <CreateRoomModal
         isOpen={createRoomModalOpen}
         onClose={() => setCreateRoomModalOpen(false)}
@@ -748,122 +633,15 @@ export default function Home() {
               status: 'draft',
             };
             setDashboardRooms((prev) => [newRoom, ...prev]);
-            setActiveRoom({ id: newRoom.id, nama: newRoom.nama, kode: newRoom.kode });
-            setContractLocked(false);
-            setContractDeadline(null);
-            setContractTasks([]);
-            setContractMembers([{ id: user?.id ?? '', name: userName, role: 'ketua', contractVote: 'agree' }]);
-            setRoomSubTab('kontrak');
-            setCurrentView('room');
-            setToastMessage(`Ruangan "${newRoom.nama}" berhasil dibuat! Kode: ${newRoom.kode}`);
+            setToastMessage(`Ruangan "${newRoom.nama}" dibuat! Kode: ${newRoom.kode}`);
+            openRoom({ id: newRoom.id, nama: newRoom.nama, kode: newRoom.kode, role: 'ketua' });
           } catch (err: unknown) {
             setToastMessage(err instanceof Error ? err.message : 'Gagal membuat ruangan.');
           }
         }}
       />
 
-      {/* Modal Nama Panggilan — onboarding pertama & rename via header */}
-      <Modal isOpen={nameModalOpen} onClose={() => setNameModalOpen(false)} title="Nama Panggilan">
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            handleSaveName();
-          }}
-          className="space-y-4"
-        >
-          <p className="text-xs text-[var(--c3)] leading-relaxed">
-            Nama ini yang tampil di ruangan tim, kontrak, dan laporan yang dibaca dosen.
-          </p>
-          <Field
-            label="Panggil kamu apa?"
-            type="text"
-            placeholder="Contoh: Raken"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            maxLength={40}
-            required
-            autoFocus
-          />
-          <div className="flex gap-2 justify-end pt-1">
-            <Btn
-              type="button"
-              variant="ghost"
-              onClick={() => setNameModalOpen(false)}
-              className="min-h-[40px] text-xs px-4"
-            >
-              Nanti saja
-            </Btn>
-            <Btn type="submit" loading={savingName} className="min-h-[40px] text-xs px-5">
-              Simpan
-            </Btn>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Global Toast */}
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage(null)} />}
-
-      {/* Drawer Anggota & Aktivitas (DESIGN.md v2 §1.5 #2 & §5.4) */}
-      <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} title="Anggota & Aktivitas">
-        <div className="space-y-4">
-          <span className="eyebrow text-[11px]">Anggota Tim</span>
-          {contractMembers.length === 0 ? (
-            <p className="text-xs text-[var(--c3)] font-mono">Belum ada anggota.</p>
-          ) : (
-            <AvatarStack
-              members={contractMembers.map((m) => ({ name: m.name, isOwner: m.role === 'ketua' }))}
-            />
-          )}
-          <div className="space-y-2 pt-2 text-xs font-mono text-[var(--c3)]">
-            {contractMembers.map((m) => (
-              <div key={m.id} className="flex justify-between">
-                <span>{m.name}{m.role === 'ketua' ? ' (Ketua)' : ''}</span>
-                <span>0p</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-3 pt-4 border-t border-[var(--c1)]">
-          <span className="eyebrow text-[11px]">Aktivitas Terkini</span>
-          <p className="text-xs text-[var(--c3)] font-mono">Belum ada aktivitas.</p>
-        </div>
-      </Drawer>
-
-      {/* Thumb Bar — Satu Aksi Utama Kontekstual (DESIGN.md v2 §4)
-          Wrapper hanya pakai opacity (bukan transform/filter) supaya posisi fixed ThumbBar tidak rusak. */}
-      {thumbBarVisible && (
-        <div
-          style={{
-            opacity: phase === 'idle' && currentView === displayedView ? 1 : 0,
-            transition: `opacity ${phase === 'out' ? EXIT_MS : ENTER_MS}ms ${phase === 'out' ? 'ease-in' : EASE}`,
-            pointerEvents: phase === 'idle' ? 'auto' : 'none',
-          }}
-        >
-          <ThumbBar
-            view={displayedView}
-            onNavigate={setCurrentView}
-            primaryText={
-              displayedView === 'landing'
-                ? 'Mulai gratis'
-                : displayedView === 'auth'
-                ? 'Kirim tautan masuk'
-                : 'Buat ruangan'
-            }
-            onPrimaryClick={() => {
-              if (displayedView === 'landing') setCurrentView('auth');
-              else if (displayedView === 'auth') setAuthSent(true);
-              else if (displayedView === 'dashboard') {
-                setCreateRoomModalOpen(true);
-              }
-            }}
-            secondaryText={displayedView === 'dashboard' ? 'Masuk kode' : undefined}
-            onSecondaryClick={() => {
-              if (displayedView === 'dashboard') setJoinModalOpen(true);
-            }}
-          />
-        </div>
-      )}
-    </main>
+    </div>
   );
 }

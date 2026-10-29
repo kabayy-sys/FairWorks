@@ -131,3 +131,51 @@ body {
     transition-duration: 0.3s !important;
   }
 }
+
+/* ===== Shell halaman (ruang-tim): transisi antar view + stagger masuk ===== */
+@keyframes fwLeave {
+  to {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes fwRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+.fw-leave {
+  animation: fwLeave 0.4s var(--ease) both;
+  pointer-events: none;
+}
+
+.fw-stagger > * {
+  animation: fwRise 0.7s var(--ease) both;
+  animation-delay: calc(var(--i, 0) * 60ms + 60ms);
+}
+.fw-stagger > *:nth-child(2) { animation-delay: 120ms; }
+.fw-stagger > *:nth-child(3) { animation-delay: 180ms; }
+.fw-stagger > *:nth-child(4) { animation-delay: 240ms; }
+.fw-stagger > *:nth-child(5) { animation-delay: 300ms; }
+.fw-stagger > *:nth-child(6) { animation-delay: 360ms; }
+.fw-stagger > *:nth-child(7) { animation-delay: 420ms; }
+.fw-stagger > *:nth-child(8) { animation-delay: 480ms; }
+
+/* Expand/collapse detail baris (grid-rows trick) */
+.fw-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition: grid-template-rows 0.45s var(--ease), opacity 0.45s var(--ease);
+}
+.fw-reveal.on {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.fw-reveal > div {
+  overflow: hidden;
+  min-height: 0;
+}
