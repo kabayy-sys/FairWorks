@@ -497,21 +497,31 @@ export function RoomView({
           </div>
 
           <h2 className="mb-3 mt-8 text-[14px] font-medium text-[var(--c3)]">Aktivitas</h2>
-          <div className="max-h-[320px] overflow-y-auto border-t border-[var(--c1)]">
-            {activities.length === 0 ? (
-              <p className="py-4 text-[13.5px] text-[var(--c3)]">Belum ada aktivitas.</p>
-            ) : (
-              activities.map((a) => (
-                <div key={a.id} className="border-b border-[var(--c1)] py-2.5 text-[14px] last:border-b-0">
-                  <time className="block text-[12.5px] text-[var(--c3)]">
-                    {new Date(a.created_at).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                  </time>
-                  <b className="font-medium">
-                    {a.profiles?.nama ?? 'Sistem'} {AKSI_MAP[a.aksi] ?? a.aksi}
-                  </b>
-                </div>
-              ))
-            )}
+          <div className="relative overflow-hidden rounded-[14px] border border-[var(--c1)] bg-[var(--c0)] p-3.5">
+            <div className="flex items-center gap-2 border-b border-[var(--c1)] pb-2 mb-2.5 font-mono text-[11px] text-[var(--c3)]">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[var(--c4)] opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[var(--c4)]" />
+              </span>
+              <span className="font-semibold text-[var(--c4)]">LIVE</span>
+              <span>$ tail -f aktivitas.log</span>
+            </div>
+            <ul className="m-0 p-0 list-none max-h-[220px] overflow-y-auto space-y-2 text-[13px]" aria-live="off">
+              {activities.length === 0 ? (
+                <li className="text-[var(--c3)] py-2">Belum ada aktivitas.</li>
+              ) : (
+                activities.map((a) => (
+                  <li key={a.id} className="flex items-start gap-2 text-[var(--c3)] leading-relaxed">
+                    <span className="font-mono text-[11px] text-[var(--c3)]/70 whitespace-nowrap pt-0.5">
+                      {new Date(a.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span>
+                      <strong className="font-medium text-[var(--c4)]">{a.profiles?.nama ?? 'Sistem'}</strong> {AKSI_MAP[a.aksi] ?? a.aksi}
+                    </span>
+                  </li>
+                ))
+              )}
+            </ul>
           </div>
         </aside>
       </div>

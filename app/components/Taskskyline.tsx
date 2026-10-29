@@ -264,7 +264,7 @@ export function TaskSkyline({ tasks, pct, onSelectTask }: TaskSkylineProps) {
       const t = list[r];
       b.task = t;
       let nt = 0;
-      if (t) nt = t.status === 'open' ? 5 : Math.max(10, b.h * (0.75 + 0.5 * (t.poin / maxP)) * HEIGHT_FACTOR[t.status]);
+      if (t) nt = t.status === 'open' ? 6 : Math.max(12, b.h * (0.2 + 1.2 * (t.poin / maxP)) * HEIGHT_FACTOR[t.status]);
       b.g.setAttribute('class', `fw-sky-b${t ? ` s-${t.status}` : ''}${b.hv ? ' hv' : ''}`);
       if (t) {
         b.g.setAttribute('role', 'button');

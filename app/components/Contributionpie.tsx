@@ -130,13 +130,14 @@ export function ContributionPie({ members, centerLabel = 'poin selesai' }: Contr
                   transform: `translate(${dx.toFixed(1)}px, ${dy.toFixed(1)}px)`,
                   opacity: active < 0 || on ? 1 : 0.4,
                   transition: 'transform .28s cubic-bezier(.3,.7,.2,1), opacity .2s',
+                  pointerEvents: 'auto',
                 }}
                 stroke={on ? 'var(--c4)' : 'none'}
                 strokeWidth={on ? 1.5 : 0}
-                onPointerEnter={() => setActive(s.i)}
-                onPointerLeave={() => setActive(-1)}
+                onMouseEnter={() => setActive(s.i)}
+                onMouseLeave={() => setActive((cur) => (cur === s.i ? -1 : cur))}
                 onFocus={() => setActive(s.i)}
-                onBlur={() => setActive(-1)}
+                onBlur={() => setActive((cur) => (cur === s.i ? -1 : cur))}
               />
             );
           })}
