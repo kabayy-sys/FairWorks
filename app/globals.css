@@ -36,7 +36,43 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Background canvas */
+/* Ink-Stamp Lock (dari Galeri-Komponen.html) */
+.n8st {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+}
+.n8seal {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  border: 3px double var(--c4);
+  display: grid;
+  place-content: center;
+  text-align: center;
+  color: var(--c4);
+  filter: url(#n8ink);
+  opacity: 0;
+  transform: scale(3) rotate(-24deg);
+}
+.n8seal b { font: 800 13px var(--font-sans); letter-spacing: .06em; }
+.n8seal i { font: normal 600 9px var(--font-mono); letter-spacing: .1em; }
+.n8st.on .n8seal {
+  animation: n8stamp .7s cubic-bezier(.2, .9, .3, 1.2) forwards;
+}
+@keyframes n8stamp {
+  0% { opacity: 0; transform: scale(3) rotate(-24deg); }
+  45% { opacity: 1; transform: scale(.88) rotate(-10deg); }
+  70% { transform: scale(1.06) rotate(-12deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-12deg); }
+}
+.n8st.on {
+  animation: n8hit .35s .3s;
+}
+@keyframes n8hit {
+  30% { transform: translate(1px, 2px); }
+  60% { transform: translate(-1px, -1px); }
+}
 .bg-canvas {
   position: fixed;
   inset: 0;

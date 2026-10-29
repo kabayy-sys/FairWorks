@@ -392,7 +392,9 @@ export function RoomView({
                     >
                       <span className="grid h-[22px] w-[22px] place-items-center">
                         {t.status === 'done' ? (
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--c4)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M8.5 12.5l2.5 2.5 4.5-5" /></svg>
+                          <span className="n8st on inline-grid scale-[0.6] origin-center -ml-1">
+                            <span className="n8seal"><b>APPROVED</b><i>VERIFIED</i></span>
+                          </span>
                         ) : t.status === 'review' ? (
                           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--c3)" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 8v4l2.5 2.5" /></svg>
                         ) : t.status === 'doing' ? (
@@ -600,6 +602,13 @@ export function RoomView({
           </div>
         </form>
       </Modal>
+      {/* SVG filter tersembunyi untuk efek kasar stempel tint */}
+      <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }} aria-hidden>
+        <filter id="n8ink">
+          <feTurbulence type="fractalNoise" baseFrequency=".8" numOctaves="2" result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="3" />
+        </filter>
+      </svg>
     </div>
   );
 }
