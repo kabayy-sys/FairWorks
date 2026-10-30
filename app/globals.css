@@ -1228,6 +1228,146 @@ body {
   }
 }
 
+/* ===== Masuk – Review Auth ===== */
+.auth-view-wrap {
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  width: 100%;
+  max-width: 420px;
+  animation: fwRise 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.auth-view-back {
+  justify-self: start;
+  appearance: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  color: var(--c3);
+  font: 400 14px var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  padding: 4px 2px;
+  transition: color 0.2s;
+}
+
+.auth-view-back:hover {
+  color: var(--c4);
+}
+
+.auth-view-card {
+  width: 100%;
+  display: grid;
+  gap: 16px;
+  padding: 28px;
+  border: 1px solid var(--c2);
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--c1) 70%, transparent);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.45);
+}
+
+.auth-view-card h1 {
+  font-size: 28px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+
+.auth-view-card .sub {
+  margin-top: -8px;
+  font-size: 14px;
+  color: var(--c3);
+  margin-bottom: 0;
+}
+
+.auth-view-g {
+  appearance: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid var(--c4);
+  background: #fff;
+  color: #0b0b0d;
+  font: 500 15px var(--font-geist-sans), system-ui, -apple-system, sans-serif;
+  transition: filter 0.2s, transform 0.15s;
+}
+
+.auth-view-g:hover {
+  filter: brightness(0.95);
+}
+
+.auth-view-g:active {
+  transform: scale(0.98);
+}
+
+.auth-view-g:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.auth-view-card .hint {
+  font-size: 13px;
+  color: var(--c3);
+  text-align: center;
+  margin: 0;
+}
+
+.auth-view-trust {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  justify-self: stretch;
+}
+
+.auth-view-trust li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--c3);
+}
+
+.auth-view-trust svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  fill: none;
+  stroke: var(--c4);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.auth-view-note {
+  font-size: 12px;
+  color: var(--c3);
+  text-align: center;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.auth-view-note a {
+  color: var(--c4);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-view-wrap {
+    animation: none;
+  }
+}
+
+
 @keyframes fwLeave {
   to {
     opacity: 0;
