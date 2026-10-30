@@ -87,51 +87,58 @@ export function DashboardViewNew({ userName, rooms, myTasks, onSelectRoom, onJoi
               <p className="text-sm">Buat ruangan pertama, atau gabung lewat kode dari temanmu.</p>
             </div>
           ) : (
-            <div className="-mx-3 border-b border-[var(--c1)]">
+            <div className="space-y-3">
               {rooms.map((room) => {
                 const pct = Math.round(((room.donePoints || 0) / Math.max(1, room.totalPoints || 1)) * 100);
                 const isOwner = room.role === 'ketua';
                 return (
                   <div
                     key={room.id}
-                    className="group rrow grid w-full grid-cols-1 items-center gap-3 border-t border-[var(--c1)] px-3 py-[18px] text-left transition-colors hover:bg-[var(--c1)]/45 md:grid-cols-[minmax(0,1fr)_minmax(120px,230px)] md:gap-6"
+                    className="group relative rounded-[18px] border border-[var(--c1)] bg-[var(--c0)] p-5 transition-all hover:border-[var(--c2)] space-y-4"
                   >
-                    <button
-                      onClick={() => onSelectRoom(room)}
-                      className="rrow-btn w-full cursor-pointer text-left transition-colors"
-                    >
-                      <span className="min-w-0">
-                        <b className="block truncate text-[17px] font-medium">{room.nama}</b>
-                        <small className="text-[13.5px] text-[var(--c3)]">
-                          <span className="mr-2 rounded border border-dashed border-[var(--c2)] px-1.5 py-px font-[family-name:var(--font-geist-mono)] text-[11.5px]">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <button
+                        onClick={() => onSelectRoom(room)}
+                        className="min-w-0 flex-1 cursor-pointer text-left transition-colors"
+                      >
+                        <h3 className="truncate text-[18px] font-semibold text-[var(--c4)] tracking-tight">{room.nama}</h3>
+                        <p className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-[var(--c3)] font-mono">
+                          <span className="rounded border border-dashed border-[var(--c2)] px-1.5 py-0.5 text-[11px]">
                             {room.kode}
                           </span>
-                          {room.role === 'ketua' ? 'Ketua' : 'Anggota'} · {room.membersCount} anggota
-                          {room.status === 'locked' ? ' · kontrak terkunci' : ''}
-                        </small>
-                      </span>
-                      <span className="rprog flex items-center gap-3">
-                        <span className="bar h-1 flex-1 overflow-hidden rounded bg-[var(--c1)]">
-                          <i
-                            className="block h-full rounded bg-[var(--c4)] transition-[width] duration-1000"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </span>
-                        <em className="w-[42px] text-right text-[14px] font-medium not-italic tabular-nums">{pct}%</em>
-                      </span>
-                    </button>
-                    {isOwner && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteConfirm(room.id);
-                        }}
-                        className="ml-auto text-xs text-[var(--c3)] hover:text-red-400 transition-colors px-3 py-1 rounded hover:bg-red-950/20 opacity-0 group-hover:opacity-100"
-                        title="Hapus ruangan"
-                      >
-                        🗑 Hapus
+                          <span>{room.role === 'ketua' ? 'Ketua (Anda)' : 'Anggota'}</span>
+                          <span>·</span>
+                          <span>{room.membersCount} anggota</span>
+                          {room.status === 'locked' && <span className="text-[var(--c4)]">· Kontrak terkunci</span>}
+                        </p>
                       </button>
-                    )}
+
+                      {isOwner && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm(room.id);
+                          }}
+                          className="cursor-pointer rounded-lg border border-[var(--c1)] bg-[var(--c1)]/60 px-2.5 py-1 text-[11px] font-mono text-[var(--c3)] transition-colors hover:border-[var(--c2)] hover:text-[var(--c4)]"
+                          title="Hapus ruangan"
+                        >
+                          Hapus
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="space-y-1.5 pt-2 border-t border-[var(--c1)]">
+                      <div className="flex justify-between text-xs font-mono">
+                        <span className="text-[var(--c3)]">Progres Selesai</span>
+                        <span className="font-semibold text-[var(--c4)] tabular-nums">{pct}%</span>
+                      </div>
+                      <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--c1)]">
+                        <div
+                          className="h-full rounded-full bg-[var(--c4)] transition-all duration-700"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
                   </div>
                 );
               })}
