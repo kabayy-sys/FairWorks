@@ -140,19 +140,33 @@ export function DashboardViewNew({ userName, rooms, myTasks, onSelectRoom, onJoi
         </section>
 
         <aside>
+          <div className="flex items-center gap-3 mb-4 p-3.5 rounded-[16px] border border-[var(--c1)] bg-[var(--c0)]">
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--c1)] text-sm font-bold text-[var(--c4)] border border-[var(--c2)]">
+              {userName ? userName.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="min-w-0">
+              <b className="block truncate text-[14.5px] font-medium text-[var(--c4)]">{userName}</b>
+              <small className="text-[12px] text-[var(--c3)] font-mono">Profil Anggota Aktif</small>
+            </div>
+          </div>
+
           <h2 className="mb-3 text-[14px] font-medium text-[var(--c3)]">Tugas Anda</h2>
           {myTasks.length === 0 ? (
             <p className="text-[13.5px] text-[var(--c3)]">Belum ada tugas berjalan. Ambil tugas dari ruangan timmu.</p>
           ) : (
-            <div className="border-t border-[var(--c1)]">
+            <div className="space-y-2.5">
               {myTasks.map((t) => (
-                <div key={t.id} className="block border-b border-[var(--c1)] py-3">
-                  <b className="block text-[14.5px] font-medium leading-snug">{t.judul}</b>
-                  <small className="text-[13px] text-[var(--c3)]">
-                    {t.rooms?.nama ?? 'Ruangan'} · {STATUS_LABEL[t.status] ?? t.status}
-                    {t.poin ? ` · ${t.poin}p` : ''}
-                    {t.due_date ? ` · tenggat ${new Date(t.due_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}` : ''}
-                  </small>
+                <div key={t.id} className="rounded-[14px] border border-[var(--c1)] bg-[var(--c0)] p-4 space-y-2 transition-all hover:border-[var(--c2)]">
+                  <div className="flex items-start justify-between gap-2">
+                    <b className="text-[14.5px] font-medium text-[var(--c4)] leading-snug">{t.judul}</b>
+                    <span className="shrink-0 rounded-full border border-[var(--c2)] px-2 py-0.5 font-mono text-[11px] text-[var(--c3)] tabular-nums">
+                      {t.poin}p
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-[12px] text-[var(--c3)] font-mono">
+                    <span className="truncate">{t.rooms?.nama ?? 'Ruangan'}</span>
+                    <span className="rounded bg-[var(--c1)] px-2 py-0.5 text-[var(--c4)]">{STATUS_LABEL[t.status] ?? t.status}</span>
+                  </div>
                 </div>
               ))}
             </div>
