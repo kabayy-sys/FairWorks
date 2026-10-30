@@ -162,26 +162,31 @@ export function DashboardViewNew({ userName, rooms, myTasks, onSelectRoom, onJoi
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-[var(--c0)] rounded-[16px] border border-[var(--c2)] p-6 max-w-sm mx-4 space-y-4">
-            <h3 className="text-lg font-semibold text-[var(--c4)]">Hapus Ruangan?</h3>
-            <p className="text-sm text-[var(--c3)]">
-              Tindakan ini tidak dapat dibatalkan. Semua data kontrak dan tugas di ruangan ini akan dihapus.
-            </p>
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => handleDelete(deleteConfirm)}
-                disabled={deleting}
-                className="flex-1 px-4 py-2 rounded-[10px] bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
-              >
-                {deleting ? 'Menghapus...' : 'Hapus Ruangan'}
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setDeleteConfirm(null)}>
+          <div
+            className="w-full max-w-sm mx-4 rounded-[22px] border border-[var(--c2)] bg-[var(--c0)] p-6 shadow-2xl space-y-4 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-1.5">
+              <h3 className="text-lg font-semibold tracking-tight text-[var(--c4)]">Hapus Ruangan?</h3>
+              <p className="text-sm text-[var(--c3)] leading-relaxed">
+                Tindakan ini tidak dapat dibatalkan. Semua data kontrak dan tugas di ruangan ini akan dihapus.
+              </p>
+            </div>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 onClick={() => setDeleteConfirm(null)}
                 disabled={deleting}
-                className="flex-1 px-4 py-2 rounded-[10px] border border-[var(--c2)] bg-transparent text-[var(--c4)] text-sm font-medium hover:bg-[var(--c1)] disabled:opacity-50 transition-colors"
+                className="cursor-pointer rounded-[10px] border border-[var(--c2)] px-4 py-2 text-xs font-medium text-[var(--c4)] transition-colors hover:bg-[var(--c1)] disabled:opacity-50"
               >
                 Batal
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                disabled={deleting}
+                className="cursor-pointer rounded-[10px] border border-[var(--c4)] bg-[var(--c4)] px-4 py-2 text-xs font-medium text-[var(--c0)] transition-all hover:brightness-110 disabled:opacity-50"
+              >
+                {deleting ? 'Menghapus...' : 'Hapus Ruangan'}
               </button>
             </div>
           </div>
