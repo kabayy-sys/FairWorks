@@ -21,6 +21,7 @@ import {
   submitProof as apiSubmitProof,
   castVote as apiCastVote,
   releaseTask as apiReleaseTask,
+  createTask as apiCreateTask,
   detectLinkType,
   LinkChipType,
 } from '@/lib/api/fairworks';
@@ -105,6 +106,17 @@ export function RoomTaskLifecycle({
     task: TaskItem;
   } | null>(null);
 
+  // Create Task Modal State
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createFormData, setCreateFormData] = useState({
+    judul: '',
+    deskripsi: '',
+    poin: 10,
+    dueDate: '',
+  });
+  const [createError, setCreateError] = useState('');
+  const [createLoading, setCreateLoading] = useState(false);
+
   // Link Chip Detection
   const linkType: LinkChipType = useMemo(() => {
     return detectLinkType(proofUrl);
@@ -116,8 +128,22 @@ export function RoomTaskLifecycle({
       const supabase = createClient();
       const channel = supabase
         .channel('room-realtime-tasks')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => {
-          // Realtime update hook
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
+          // Refetch task data on any change (insert, update, delete)
+          // This ensures UI updates without manual refresh
+          if (payload.new) {
+            const newTask = payload.new as TaskItem;
+            setTasks((prev) => {
+              const exists = prev.find((t) => t.id === newTask.id);
+              if (exists) {
+                return prev.map((t) => (t.id === newTask.id ? newTask : t));
+              }
+              return [...prev, newTask];
+            });
+          } else if (payload.old && payload.eventType === 'DELETE') {
+            const deletedId = (payload.old as TaskItem).id;
+            setTasks((prev) => prev.filter((t) => t.id !== deletedId));
+          }
         })
         .subscribe();
 
@@ -324,9 +350,9 @@ export function RoomTaskLifecycle({
     try {
       await apiCastVote(task.id, 'ok').catch(() => null);
 
-      // Quorum calculation: floor((n - 1) / 2) + 1
+      // Unanimous voting: ALL members except assignee must approve
       const eligibleCount = members.filter((m) => m.id !== task.assignee_id).length;
-      const needed = eligibleCount <= 1 ? 1 : Math.floor((eligibleCount - 1) / 2) + 1;
+      const needed = eligibleCount;
 
       const existingVotes = task.votes || [];
       const updatedVotes = [
@@ -418,6 +444,43 @@ export function RoomTaskLifecycle({
     }
   };
 
+  // 7. Create Task (Member dapat membuat tugas)
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!createFormData.judul.trim()) {
+      setCreateError('Judul tugas wajib diisi.');
+      return;
+    }
+
+    setCreateLoading(true);
+    setCreateError('');
+
+    try {
+      const newTask = await apiCreateTask({
+        roomId: roomCode || '', // roomCode bisa dipakai sebagai reference, tapi ideally roomId
+        judul: createFormData.judul.trim(),
+        deskripsi: createFormData.deskripsi.trim() || undefined,
+        poin: createFormData.poin,
+        dueDate: createFormData.dueDate || undefined,
+      });
+
+      setTasks((prev) => [...prev, newTask as TaskItem]);
+      addActivity(currentUserName, `membuat tugas "${createFormData.judul.trim()}"`);
+      setToastMessage('Tugas berhasil dibuat.');
+      setShowCreateModal(false);
+      setCreateFormData({
+        judul: '',
+        deskripsi: '',
+        poin: 10,
+        dueDate: '',
+      });
+    } catch {
+      setCreateError('Gagal membuat tugas. Coba lagi.');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
   // Format Due Text
   const formatDue = (t: TaskItem) => {
     if (t.status === 'done') return 'Selesai';
@@ -434,8 +497,8 @@ export function RoomTaskLifecycle({
     if (t.status === 'review') {
       const okVotes = (t.votes || []).filter((v) => v.vote === 'ok').length;
       const eligible = members.filter((m) => m.id !== t.assignee_id).length;
-      const needed = eligible <= 1 ? 1 : Math.floor((eligible - 1) / 2) + 1;
-      return `${okVotes}/${needed} setuju`;
+      const needed = eligible; // Unanimous: ALL must approve
+      return `${okVotes}/${needed} setuju (semua diperlukan)`;
     }
     return undefined;
   };
@@ -506,13 +569,20 @@ export function RoomTaskLifecycle({
           />
         </div>
 
-        {/* Tab filter */}
+        {/* Tab filter + Create Task Button */}
         <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
           <TabsPill
             tabs={['Semua', 'Bisa diambil']}
             activeTab={activeTab}
             onChange={(tab) => setActiveTab(tab as 'Semua' | 'Bisa diambil')}
           />
+          <Btn
+            variant="outline"
+            onClick={() => setShowCreateModal(true)}
+            className="text-xs min-h-[40px] px-4"
+          >
+            + Buat Tugas
+          </Btn>
         </div>
       </section>
 
@@ -812,6 +882,114 @@ export function RoomTaskLifecycle({
               )}
             </div>
           </div>
+        </Modal>
+      )}
+
+      {/* ==============================================================
+          MODAL BUAT TUGAS (Member dapat membuat tugas)
+         ============================================================== */}
+      {showCreateModal && (
+        <Modal
+          isOpen={true}
+          onClose={() => {
+            setShowCreateModal(false);
+            setCreateError('');
+            setCreateFormData({
+              judul: '',
+              deskripsi: '',
+              poin: 10,
+              dueDate: '',
+            });
+          }}
+          title="Buat Tugas Baru"
+        >
+          <form onSubmit={handleCreateTask} className="space-y-4">
+            <p className="text-xs text-[var(--c3)]">
+              Buat tugas baru untuk ruangan ini. Semua anggota bisa mengambilnya.
+            </p>
+
+            <Field
+              label="Judul Tugas"
+              placeholder="Contoh: Buat slide presentasi..."
+              value={createFormData.judul}
+              onChange={(e) => {
+                setCreateFormData({ ...createFormData, judul: e.target.value });
+                if (createError) setCreateError('');
+              }}
+              required
+              autoFocus
+            />
+
+            <div>
+              <label className="eyebrow text-xs">Deskripsi (Opsional)</label>
+              <textarea
+                rows={3}
+                placeholder="Jelaskan detail tugas, cakupan, dan deliverable..."
+                value={createFormData.deskripsi}
+                onChange={(e) =>
+                  setCreateFormData({ ...createFormData, deskripsi: e.target.value })
+                }
+                className="w-full bg-[var(--c1)] border border-[var(--c2)] rounded-[var(--radius-input)] px-4 py-2.5 text-[var(--c4)] placeholder-[var(--c3)] focus:outline-none focus:border-[var(--c4)] transition-all text-xs resize-none mt-2"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="eyebrow text-xs">Poin</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="100"
+                  value={createFormData.poin}
+                  onChange={(e) =>
+                    setCreateFormData({ ...createFormData, poin: parseInt(e.target.value) || 10 })
+                  }
+                  className="w-full bg-[var(--c1)] border border-[var(--c2)] rounded-[var(--radius-input)] px-4 py-2.5 text-[var(--c4)] focus:outline-none focus:border-[var(--c4)] transition-all text-xs mt-2"
+                />
+              </div>
+              <div>
+                <label className="eyebrow text-xs">Tenggat (Opsional)</label>
+                <input
+                  type="date"
+                  value={createFormData.dueDate}
+                  onChange={(e) =>
+                    setCreateFormData({ ...createFormData, dueDate: e.target.value })
+                  }
+                  className="w-full bg-[var(--c1)] border border-[var(--c2)] rounded-[var(--radius-input)] px-4 py-2.5 text-[var(--c4)] focus:outline-none focus:border-[var(--c4)] transition-all text-xs mt-2"
+                />
+              </div>
+            </div>
+
+            {createError && <p className="text-xs text-[var(--c4)] font-mono">{createError}</p>}
+
+            <div className="flex gap-2 pt-2">
+              <Btn
+                type="submit"
+                variant="solid"
+                loading={createLoading}
+                className="flex-1 text-sm font-semibold"
+              >
+                Buat Tugas
+              </Btn>
+              <Btn
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setCreateError('');
+                  setCreateFormData({
+                    judul: '',
+                    deskripsi: '',
+                    poin: 10,
+                    dueDate: '',
+                  });
+                }}
+                className="text-xs px-4"
+              >
+                Batal
+              </Btn>
+            </div>
+          </form>
         </Modal>
       )}
 
