@@ -401,6 +401,18 @@ export default function Home() {
     return () => subscription.unsubscribe();
   }, [loadDashboard]);
 
+  // Realtime dashboard — auto-refresh saat room_members / tasks berubah
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`dashboard-realtime-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members' }, () => loadDashboard())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadDashboard())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, loadDashboard]);
+
   // Active room data lookup
   const currentRoom = useMemo(() => {
     if (!rooms.length || activeRoomIndex < 0 || activeRoomIndex >= rooms.length) return null;
