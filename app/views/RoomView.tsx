@@ -104,33 +104,16 @@ export function RoomView({
     load();
   }, [roomId, load]);
 
-  // Realtime subscription untuk task updates (tanpa refresh manual)
+  // Realtime subscription — tasks + room_members + contract_votes
   React.useEffect(() => {
-    try {
-      const supabase = createClient();
-      const channel = supabase
-        .channel(`room-${roomId}-realtime-tasks`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'tasks',
-            filter: `room_id=eq.${roomId}`,
-          },
-          (payload) => {
-            // Refetch data saat ada perubahan di tasks
-            load();
-          }
-        )
-        .subscribe();
+    const supabase = createClient();
+    const channel = supabase
+      .channel(`room-${roomId}-realtime`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `room_id=eq.${roomId}` }, () => load())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members', filter: `room_id=eq.${roomId}` }, () => load())
+      .subscribe();
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    } catch {
-      // Silent fallback jika Supabase tidak configured
-    }
+    return () => { supabase.removeChannel(channel); };
   }, [roomId, load]);
 
   // Posisi ink tab
