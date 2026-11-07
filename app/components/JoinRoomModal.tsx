@@ -47,7 +47,7 @@ export function JoinRoomModal({ isOpen, onClose, onJoin }: JoinRoomModalProps) {
           placeholder="RPD-4K7"
           value={code}
           onChange={(e) => {
-            setCode(e.target.value);
+            setCode(e.target.value.toUpperCase());
             if (error) setError('');
           }}
           autoFocus
