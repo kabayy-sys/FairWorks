@@ -29,6 +29,90 @@ const STATUS_LABEL: Record<string, string> = {
   done: 'Selesai',
 };
 
+// RoleCard: kartu pilih peran onboarding, mirip ref HTML Mono
+function RoleCard({ onClick, tag, icon, title, desc, steps, btnLabel, btnVariant }: {
+  onClick: () => void;
+  tag: string;
+  icon: React.ReactNode;
+  title: string;
+  desc: string;
+  steps: string[];
+  btnLabel: string;
+  btnVariant: 'solid' | 'orbit';
+}) {
+  const cardRef = React.useRef<HTMLDivElement>(null);
+  const [glow, setGlow] = React.useState({ x: '50%', y: '0%', show: false });
+
+  const onMove = (e: React.PointerEvent) => {
+    const r = cardRef.current?.getBoundingClientRect();
+    if (!r) return;
+    setGlow({ x: `${e.clientX - r.left}px`, y: `${e.clientY - r.top}px`, show: true });
+  };
+
+  return (
+    <div
+      ref={cardRef}
+      onPointerMove={onMove}
+      onPointerLeave={() => setGlow(g => ({ ...g, show: false }))}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={e => e.key === 'Enter' && onClick()}
+      className="relative cursor-pointer rounded-[22px] border border-[var(--c2)] bg-[color-mix(in_srgb,var(--c1)_55%,var(--c0))] p-6 flex flex-col gap-4 transition-colors hover:border-[var(--c3)] select-none"
+    >
+      {/* Glow overlay */}
+      {glow.show && (
+        <div
+          className="pointer-events-none absolute inset-0 rounded-[22px]"
+          style={{ background: `radial-gradient(240px circle at ${glow.x} ${glow.y}, color-mix(in srgb, var(--c4) 12%, transparent), transparent 65%)` }}
+        />
+      )}
+
+      {/* Top: icon ring + tag */}
+      <div className="flex items-center justify-between gap-3">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] border border-[var(--c2)] bg-[var(--c0)]">
+          {icon}
+        </div>
+        <span className="font-mono text-[11px] text-[var(--c3)] border border-[var(--c2)] rounded-full px-2.5 py-0.5 whitespace-nowrap">{tag}</span>
+      </div>
+
+      {/* Title + desc */}
+      <div className="space-y-1.5">
+        <h4 className="text-[18px] font-semibold tracking-tight text-[var(--c4)] leading-tight">{title}</h4>
+        <p className="text-[13.5px] text-[var(--c3)] leading-relaxed max-w-[38ch]">{desc}</p>
+      </div>
+
+      {/* Steps */}
+      <div className="space-y-2">
+        <p className="font-mono text-[10.5px] uppercase tracking-widest text-[var(--c3)]">Alur kamu</p>
+        <ol className="space-y-2.5 list-none">
+          {steps.map((s, i) => (
+            <li key={i} className="flex items-center gap-3 text-[13px] text-[var(--c3)]">
+              <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full border border-[var(--c2)] font-mono text-[10px] text-[var(--c3)]">{i + 1}</span>
+              {s}
+            </li>
+          ))}
+        </ol>
+      </div>
+
+      {/* Button */}
+      <div className="mt-auto pt-1">
+        {btnVariant === 'solid' ? (
+          <div className="flex h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--c4)] text-[13.5px] font-semibold text-[var(--c0)]">
+            {btnLabel}
+            <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-current fill-none stroke-2 [stroke-linecap:round] [stroke-linejoin:round]" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+        ) : (
+          <div className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--c2)] text-[13.5px] font-medium text-[var(--c4)]">
+            {btnLabel}
+            <svg viewBox="0 0 24 24" className="h-4 w-4 stroke-current fill-none stroke-2 [stroke-linecap:round] [stroke-linejoin:round]" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // Dashboard (ruang-tim §dashboard): baris ruangan + aside tugas milik sendiri.
 export function DashboardViewNew({ userName, rooms, myTasks, onSelectRoom, onJoin, onCreate, onDeleteRoom }: DashboardNewProps) {
   const today = new Intl.DateTimeFormat('id-ID', {
@@ -82,63 +166,41 @@ export function DashboardViewNew({ userName, rooms, myTasks, onSelectRoom, onJoi
       <div className="grid grid-cols-1 gap-11 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section aria-label="Daftar ruangan">
           {rooms.length === 0 ? (
-            <div className="space-y-4 border-t border-[var(--c1)] py-8">
+            <div className="border-t border-[var(--c1)] pt-8 space-y-5">
               <div>
-                <h3 className="text-[18px] font-semibold text-[var(--c4)]">Selamat datang di FairWorks!</h3>
-                <p className="mt-1 text-sm text-[var(--c3)]">Pilih peranmu untuk mulai:</p>
+                <p className="font-mono text-[11px] uppercase tracking-widest text-[var(--c3)]">FairWorks / mulai</p>
+                <h3 className="mt-2 text-[22px] font-semibold tracking-tight text-[var(--c4)]">Pilih peranmu untuk mulai.</h3>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {/* Path: Ketua */}
-                <button
+              <div className="grid gap-4 sm:grid-cols-2">
+                <RoleCard
                   onClick={onCreate}
-                  className="cursor-pointer rounded-[18px] border border-[var(--c2)] bg-[var(--c0)] p-5 text-left transition-all hover:border-[var(--c4)] hover:bg-[var(--c1)] space-y-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">👑</span>
-                    <span className="font-semibold text-[var(--c4)]">Saya Ketua Kelompok</span>
-                  </div>
-                  <p className="text-[13px] text-[var(--c3)] leading-relaxed">
-                    Buat ruangan, bagi tugas berpoin, dan pantau kontribusi tiap anggota.
-                  </p>
-                  <div className="space-y-1 pt-1">
-                    <p className="text-[12px] font-mono text-[var(--c3)]">Alur kamu:</p>
-                    <ol className="text-[12px] text-[var(--c3)] space-y-0.5 list-none">
-                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">1.</span> Buat ruangan → dapat kode unik</li>
-                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">2.</span> Bagikan kode ke anggota kelompok</li>
-                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">3.</span> Buat kontrak & bagi tugas berpoin</li>
-                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">4.</span> Pantau progres & setujui hasil kerja</li>
-                    </ol>
-                  </div>
-                  <span className="inline-block mt-2 rounded-[8px] border border-[var(--c4)] bg-[var(--c4)] px-3 py-1 text-[12px] font-medium text-[var(--c0)]">
-                    Buat Ruangan →
-                  </span>
-                </button>
-
-                {/* Path: Anggota */}
-                <button
+                  tag="buat kode"
+                  icon={
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-[var(--c4)] fill-none stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]" aria-hidden="true">
+                      <path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 10H5L3 8z"/><path d="M5 21h14"/>
+                    </svg>
+                  }
+                  title="Saya Ketua Kelompok"
+                  desc="Buat ruangan, bagi tugas berpoin, dan pantau kontribusi tiap anggota."
+                  steps={['Buat ruangan dan dapat kode unik','Bagikan kode ke anggota kelompok','Buat kontrak dan bagi tugas berpoin','Pantau progres dan setujui hasil kerja']}
+                  btnLabel="Buat Ruangan"
+                  btnVariant="solid"
+                />
+                <RoleCard
                   onClick={onJoin}
-                  className="cursor-pointer rounded-[18px] border border-[var(--c2)] bg-[var(--c0)] p-5 text-left transition-all hover:border-[var(--c4)] hover:bg-[var(--c1)] space-y-2"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">🤝</span>
-                    <span className="font-semibold text-[var(--c4)]">Saya Anggota Kelompok</span>
-                  </div>
-                  <p className="text-[13px] text-[var(--c3)] leading-relaxed">
-                    Gabung ruangan dengan kode dari ketua, ambil tugas, dan submit hasil kerjamu.
-                  </p>
-                  <div className="space-y-1 pt-1">
-                    <p className="text-[12px] font-mono text-[var(--c3)]">Alur kamu:</p>
-                    <ol className="text-[12px] text-[var(--c3)] space-y-0.5 list-none">
-                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">1.</span> Minta kode ruangan dari ketua</li>
-                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">2.</span> Gabung dengan kode tersebut</li>
-                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">3.</span> Setujui kontrak kelompok</li>
-                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">4.</span> Ambil & kerjakan tugasmu</li>
-                    </ol>
-                  </div>
-                  <span className="inline-block mt-2 rounded-[8px] border border-[var(--c2)] bg-transparent px-3 py-1 text-[12px] font-medium text-[var(--c4)]">
-                    Gabung dengan Kode →
-                  </span>
-                </button>
+                  tag="pakai kode"
+                  icon={
+                    <svg viewBox="0 0 24 24" className="w-5 h-5 stroke-[var(--c4)] fill-none stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]" aria-hidden="true">
+                      <circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/>
+                      <circle cx="17" cy="9" r="2.4"/><path d="M17 13.5c2.4 0 4 1.7 4 4"/>
+                    </svg>
+                  }
+                  title="Saya Anggota Kelompok"
+                  desc="Gabung ruangan dengan kode dari ketua, ambil tugas, dan submit hasil kerjamu."
+                  steps={['Minta kode ruangan dari ketua','Gabung dengan kode tersebut','Setujui kontrak kelompok','Ambil dan kerjakan tugasmu']}
+                  btnLabel="Gabung dengan Kode"
+                  btnVariant="orbit"
+                />
               </div>
             </div>
           ) : (
