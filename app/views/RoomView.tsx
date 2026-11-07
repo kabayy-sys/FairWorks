@@ -73,6 +73,7 @@ export function RoomView({
   const [proofNote, setProofNote] = React.useState('');
   const [reviseTask, setReviseTask] = React.useState<RoomTask | null>(null);
   const [reviseNote, setReviseNote] = React.useState('');
+  const [takeTaskModal, setTakeTaskModal] = React.useState<RoomTask | null>(null);
   const [newTaskOpen, setNewTaskOpen] = React.useState(false);
   const [ntJudul, setNtJudul] = React.useState('');
   const [ntDesk, setNtDesk] = React.useState('');
@@ -435,12 +436,16 @@ export function RoomView({
                       </span>
                       <span className="min-w-0">
                         <h3 className="truncate text-[16px] font-medium">{t.judul}</h3>
-                        <p className="mt-0.5 text-[13.5px] text-[var(--c3)]">
-                          <span className={t.status === 'done' ? 'text-[var(--c4)]' : ''}>{STATUS_LABEL[t.status]}</span>
-                          {t.assignee_id ? ` · ${memberName(t.assignee_id) ?? 'Anggota'}` : ''}
-                          {` · ${t.poin}p`}
-                          {t.due_date ? ` · tenggat ${fmtDate(t.due_date)}` : ''}
-                        </p>
+                        <div className="mt-2 space-y-1.5">
+                          <p className="text-[14px] font-semibold text-[var(--c4)]">
+                            {STATUS_LABEL[t.status]}
+                          </p>
+                          <p className="text-[13px] text-[var(--c3)]">
+                            {t.assignee_id ? `Dikerjakan oleh: ${memberName(t.assignee_id) ?? 'Anggota'}` : 'Belum ada yang mengambil'}
+                            {` · ${t.poin}p`}
+                            {t.due_date ? ` · tenggat ${fmtDate(t.due_date)}` : ''}
+                          </p>
+                        </div>
                       </span>
                       <span className="col-span-2 flex flex-wrap items-center gap-2 md:col-span-1 md:justify-end">
                         {late && (
@@ -475,7 +480,7 @@ export function RoomView({
                               <Btn
                                 variant="outline"
                                 className="min-h-[34px] cursor-pointer px-3 text-xs"
-                                onClick={() => run(() => import('@/lib/api/fairworks').then((m) => m.takeTask(t.id)), `Tugas "${t.judul}" kamu ambil.`)}
+                                onClick={() => setTakeTaskModal(t)}
                               >
                                 Ambil tugas
                               </Btn>
@@ -557,6 +562,46 @@ export function RoomView({
           </div>
         </aside>
       </div>
+
+      {/* Modal: Ambil Tugas */}
+      <Modal isOpen={!!takeTaskModal} onClose={() => setTakeTaskModal(null)} title="Ambil Tugas">
+        {takeTaskModal && (
+          <div className="space-y-4">
+            <div>
+              <h4 className="text-sm font-semibold text-[var(--c4)]">{takeTaskModal.judul}</h4>
+              {takeTaskModal.deskripsi && (
+                <p className="mt-2 text-xs text-[var(--c3)]">{takeTaskModal.deskripsi}</p>
+              )}
+              <div className="mt-3 flex gap-4 text-xs text-[var(--c3)]">
+                <span>📍 {takeTaskModal.poin} poin</span>
+                {takeTaskModal.due_date && <span>📅 tenggat {fmtDate(takeTaskModal.due_date)}</span>}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Btn
+                variant="solid"
+                className="flex-1 min-h-[40px] text-xs"
+                onClick={() => {
+                  run(
+                    () => import('@/lib/api/fairworks').then((m) => m.takeTask(takeTaskModal.id)),
+                    `Tugas "${takeTaskModal.judul}" kamu ambil.`
+                  );
+                  setTakeTaskModal(null);
+                }}
+              >
+                Ya, ambil tugas ini
+              </Btn>
+              <Btn
+                variant="ghost"
+                className="min-h-[40px] text-xs px-4"
+                onClick={() => setTakeTaskModal(null)}
+              >
+                Batal
+              </Btn>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Modal: kirim bukti */}
       <Modal isOpen={!!proofTask} onClose={() => setProofTask(null)} title="Kirim Bukti Kerja">
