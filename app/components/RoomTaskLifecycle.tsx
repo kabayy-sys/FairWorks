@@ -64,6 +64,7 @@ export interface RoomTaskLifecycleProps {
   currentUserName?: string;
   roomName?: string;
   roomCode?: string;
+  roomId?: string; // ADD: UUID untuk create task
   initialTasks?: TaskItem[];
   initialMembers?: MemberItem[];
   onNavigateHome?: () => void;
@@ -74,6 +75,7 @@ export function RoomTaskLifecycle({
   currentUserName = 'Riski',
   roomName = 'Riset Pasar Digital',
   roomCode = 'RPD-4K7',
+  roomId = '',
   initialTasks = [],
   initialMembers = [],
   onNavigateHome,
@@ -128,23 +130,32 @@ export function RoomTaskLifecycle({
       const supabase = createClient();
       const channel = supabase
         .channel('room-realtime-tasks')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-          // Refetch task data on any change (insert, update, delete)
-          // This ensures UI updates without manual refresh
-          if (payload.new) {
-            const newTask = payload.new as TaskItem;
-            setTasks((prev) => {
-              const exists = prev.find((t) => t.id === newTask.id);
-              if (exists) {
-                return prev.map((t) => (t.id === newTask.id ? newTask : t));
-              }
-              return [...prev, newTask];
-            });
-          } else if (payload.old && payload.eventType === 'DELETE') {
-            const deletedId = (payload.old as TaskItem).id;
-            setTasks((prev) => prev.filter((t) => t.id !== deletedId));
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks',
+            filter: roomId ? `room_id=eq.${roomId}` : undefined,
+          },
+          (payload) => {
+            // Refetch task data on any change (insert, update, delete)
+            // This ensures UI updates without manual refresh
+            if (payload.new) {
+              const newTask = payload.new as TaskItem;
+              setTasks((prev) => {
+                const exists = prev.find((t) => t.id === newTask.id);
+                if (exists) {
+                  return prev.map((t) => (t.id === newTask.id ? newTask : t));
+                }
+                return [...prev, newTask];
+              });
+            } else if (payload.old && payload.eventType === 'DELETE') {
+              const deletedId = (payload.old as TaskItem).id;
+              setTasks((prev) => prev.filter((t) => t.id !== deletedId));
+            }
           }
-        })
+        )
         .subscribe();
 
       return () => {
@@ -153,7 +164,7 @@ export function RoomTaskLifecycle({
     } catch {
       // Mock mode fallback when Supabase URL/key not configured
     }
-  }, []);
+  }, [roomId]);
 
   // Calculate Progress Stats
   const stats = useMemo(() => {
@@ -350,9 +361,10 @@ export function RoomTaskLifecycle({
     try {
       await apiCastVote(task.id, 'ok').catch(() => null);
 
-      // Unanimous voting: ALL members except assignee must approve
+      // Quorum calculation: majority floor((n - 1) / 2) + 1
+      // Sesuai PRD F4.4 dan RPC cast_vote logic
       const eligibleCount = members.filter((m) => m.id !== task.assignee_id).length;
-      const needed = eligibleCount;
+      const needed = eligibleCount <= 1 ? 1 : Math.floor((eligibleCount - 1) / 2) + 1;
 
       const existingVotes = task.votes || [];
       const updatedVotes = [
@@ -452,12 +464,17 @@ export function RoomTaskLifecycle({
       return;
     }
 
+    if (!roomId) {
+      setCreateError('Room ID tidak valid.');
+      return;
+    }
+
     setCreateLoading(true);
     setCreateError('');
 
     try {
       const newTask = await apiCreateTask({
-        roomId: roomCode || '', // roomCode bisa dipakai sebagai reference, tapi ideally roomId
+        roomId, // FIX: Use UUID roomId, not roomCode
         judul: createFormData.judul.trim(),
         deskripsi: createFormData.deskripsi.trim() || undefined,
         poin: createFormData.poin,
@@ -497,8 +514,8 @@ export function RoomTaskLifecycle({
     if (t.status === 'review') {
       const okVotes = (t.votes || []).filter((v) => v.vote === 'ok').length;
       const eligible = members.filter((m) => m.id !== t.assignee_id).length;
-      const needed = eligible; // Unanimous: ALL must approve
-      return `${okVotes}/${needed} setuju (semua diperlukan)`;
+      const needed = eligible <= 1 ? 1 : Math.floor((eligible - 1) / 2) + 1;
+      return `${okVotes}/${needed} setuju`;
     }
     return undefined;
   };
