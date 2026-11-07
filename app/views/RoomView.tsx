@@ -111,7 +111,6 @@ export function RoomView({
       .channel(`room-${roomId}-realtime`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks', filter: `room_id=eq.${roomId}` }, () => load())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'room_members', filter: `room_id=eq.${roomId}` }, () => load())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'task_votes', filter: `room_id=eq.${roomId}` }, () => load())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
