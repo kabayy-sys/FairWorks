@@ -82,9 +82,64 @@ export function DashboardViewNew({ userName, rooms, myTasks, onSelectRoom, onJoi
       <div className="grid grid-cols-1 gap-11 lg:grid-cols-[minmax(0,1fr)_300px]">
         <section aria-label="Daftar ruangan">
           {rooms.length === 0 ? (
-            <div className="grid gap-3 border-t border-[var(--c1)] py-12 text-[var(--c3)]">
-              <h3 className="text-[18px] font-semibold text-[var(--c4)]">Belum ada ruangan.</h3>
-              <p className="text-sm">Buat ruangan pertama, atau gabung lewat kode dari temanmu.</p>
+            <div className="space-y-4 border-t border-[var(--c1)] py-8">
+              <div>
+                <h3 className="text-[18px] font-semibold text-[var(--c4)]">Selamat datang di FairWorks!</h3>
+                <p className="mt-1 text-sm text-[var(--c3)]">Pilih peranmu untuk mulai:</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {/* Path: Ketua */}
+                <button
+                  onClick={onCreate}
+                  className="cursor-pointer rounded-[18px] border border-[var(--c2)] bg-[var(--c0)] p-5 text-left transition-all hover:border-[var(--c4)] hover:bg-[var(--c1)] space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">👑</span>
+                    <span className="font-semibold text-[var(--c4)]">Saya Ketua Kelompok</span>
+                  </div>
+                  <p className="text-[13px] text-[var(--c3)] leading-relaxed">
+                    Buat ruangan, bagi tugas berpoin, dan pantau kontribusi tiap anggota.
+                  </p>
+                  <div className="space-y-1 pt-1">
+                    <p className="text-[12px] font-mono text-[var(--c3)]">Alur kamu:</p>
+                    <ol className="text-[12px] text-[var(--c3)] space-y-0.5 list-none">
+                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">1.</span> Buat ruangan → dapat kode unik</li>
+                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">2.</span> Bagikan kode ke anggota kelompok</li>
+                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">3.</span> Buat kontrak & bagi tugas berpoin</li>
+                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">4.</span> Pantau progres & setujui hasil kerja</li>
+                    </ol>
+                  </div>
+                  <span className="inline-block mt-2 rounded-[8px] border border-[var(--c4)] bg-[var(--c4)] px-3 py-1 text-[12px] font-medium text-[var(--c0)]">
+                    Buat Ruangan →
+                  </span>
+                </button>
+
+                {/* Path: Anggota */}
+                <button
+                  onClick={onJoin}
+                  className="cursor-pointer rounded-[18px] border border-[var(--c2)] bg-[var(--c0)] p-5 text-left transition-all hover:border-[var(--c4)] hover:bg-[var(--c1)] space-y-2"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">🤝</span>
+                    <span className="font-semibold text-[var(--c4)]">Saya Anggota Kelompok</span>
+                  </div>
+                  <p className="text-[13px] text-[var(--c3)] leading-relaxed">
+                    Gabung ruangan dengan kode dari ketua, ambil tugas, dan submit hasil kerjamu.
+                  </p>
+                  <div className="space-y-1 pt-1">
+                    <p className="text-[12px] font-mono text-[var(--c3)]">Alur kamu:</p>
+                    <ol className="text-[12px] text-[var(--c3)] space-y-0.5 list-none">
+                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">1.</span> Minta kode ruangan dari ketua</li>
+                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">2.</span> Gabung dengan kode tersebut</li>
+                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">3.</span> Setujui kontrak kelompok</li>
+                      <li className="flex gap-1.5"><span className="text-[var(--c4)] font-mono">4.</span> Ambil & kerjakan tugasmu</li>
+                    </ol>
+                  </div>
+                  <span className="inline-block mt-2 rounded-[8px] border border-[var(--c2)] bg-transparent px-3 py-1 text-[12px] font-medium text-[var(--c4)]">
+                    Gabung dengan Kode →
+                  </span>
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
