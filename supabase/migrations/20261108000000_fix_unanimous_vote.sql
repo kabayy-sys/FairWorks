@@ -16,7 +16,7 @@ begin
     raise exception 'Unauthorized';
   end if;
 
-  select t.*, r.id as room_id, r.contract_locked
+  select t.*, r.id as room_id, r.locked_at
   into v_task
   from public.tasks t
   join public.rooms r on r.id = t.room_id
