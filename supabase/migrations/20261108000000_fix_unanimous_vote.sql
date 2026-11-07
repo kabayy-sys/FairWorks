@@ -86,8 +86,12 @@ begin
   from public.room_members
   where room_id = v_task.room_id and user_id != v_task.assignee_id;
 
-  -- UNANIMOUS: semua eligible voter harus ok
-  v_needed := v_eligible_members;
+  -- Adaptif: kelompok kecil (<=2 voter) wajib unanimous, lebih besar pakai kuorum mayoritas
+  if v_eligible_members <= 2 then
+    v_needed := v_eligible_members;
+  else
+    v_needed := floor((v_eligible_members - 1) / 2.0)::int + 1;
+  end if;
 
   -- Count OK votes ronde ini
   select count(*) into v_ok_votes
