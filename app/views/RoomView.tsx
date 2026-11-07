@@ -3,6 +3,7 @@
 import React from 'react';
 import { Modal, Field, Btn } from '../components/DesignSystem';
 import { getRoomData, type RoomTask, type RoomMember, type RoomActivity } from '@/lib/api/fairworks';
+import { createClient } from '@/lib/supabase/client';
 import { ContributionPie } from '../components/Contributionpie';
 import { TaskSkyline, type SkylineStatus } from '../components/Taskskyline';
 
@@ -101,6 +102,35 @@ export function RoomView({
     setTab('semua');
     setOpenRow(null);
     load();
+  }, [roomId, load]);
+
+  // Realtime subscription untuk task updates (tanpa refresh manual)
+  React.useEffect(() => {
+    try {
+      const supabase = createClient();
+      const channel = supabase
+        .channel(`room-${roomId}-realtime-tasks`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tasks',
+            filter: `room_id=eq.${roomId}`,
+          },
+          (payload) => {
+            // Refetch data saat ada perubahan di tasks
+            load();
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    } catch {
+      // Silent fallback jika Supabase tidak configured
+    }
   }, [roomId, load]);
 
   // Posisi ink tab
